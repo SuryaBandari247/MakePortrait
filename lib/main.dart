@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/photo_resize_home_page.dart';
 import 'theme/app_colors.dart';
+import 'screens/splash_screen_launcher.dart';
 
 void main() {
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -54,9 +55,7 @@ class PhotoResizeApp extends StatelessWidget {
           style: ButtonStyle(
             backgroundColor: WidgetStatePropertyAll(AppColors.primaryGreen),
             foregroundColor: WidgetStatePropertyAll(AppColors.cream),
-            overlayColor: WidgetStatePropertyAll(
-              Color(0x338BB174),
-            ), // 20% opacity of kPrimaryGreen
+            overlayColor: WidgetStatePropertyAll(Color(0x338BB174)),
             textStyle: WidgetStatePropertyAll(
               TextStyle(color: AppColors.cream),
             ),
@@ -94,7 +93,7 @@ class PhotoResizeApp extends StatelessWidget {
           contentTextStyle: TextStyle(color: AppColors.cream),
         ),
       ),
-      home: const GradientBackground(child: PhotoResizeHomePage()),
+      home: SplashScreenLauncher(),
     );
   }
 }

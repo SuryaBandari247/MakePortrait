@@ -21,6 +21,17 @@ class PhotoResizeHomePage extends StatefulWidget {
 }
 
 class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
+  @override
+  void initState() {
+    super.initState();
+    _clearStateOnFreshStart();
+  }
+
+  Future<void> _clearStateOnFreshStart() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefsKey);
+  }
+
   static const int _totalSteps = 5;
   String? _qualityWarning;
   static const _prefsKey = 'photo_resize_app_state';
@@ -76,12 +87,6 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
             : null;
       });
     } catch (_) {}
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _restoreState();
   }
 
   int _step = 0;
@@ -295,9 +300,20 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
       appBar: AppBar(
         backgroundColor: kBannerGold,
         elevation: 0,
-        title: const Text(
-          'Photo Resize App',
-          style: TextStyle(color: Colors.black),
+        title: Row(
+          children: [
+            Image.asset('assets/make_portrait_logo.png', width: 32, height: 32),
+            const SizedBox(width: 12),
+            const Text(
+              'MakePortrait',
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [

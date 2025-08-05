@@ -89,7 +89,22 @@ class _CropScreenState extends State<CropScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Crop Image'),
+        title: Row(
+          children: [
+            Image.asset('assets/make_portrait_logo.png', width: 32, height: 32),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Crop Image',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         backgroundColor: kBannerGold,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
