@@ -21,6 +21,7 @@ class PhotoResizeHomePage extends StatefulWidget {
 }
 
 class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
+  static const int _totalSteps = 5;
   String? _qualityWarning;
   static const _prefsKey = 'photo_resize_app_state';
 
@@ -308,528 +309,594 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
             ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Builder(
-          builder: (context) {
-            if (_step == 0) {
-              return Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Step 1: Select or Take a Photo',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    icon: const Icon(
-                      Icons.photo_library,
-                      color: kCream,
-                      size: 48,
-                    ),
-                    onPressed: () => _pickImage(fromCamera: false),
-                    label: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16.0),
-                      child: Text(
-                        'Gallery',
-                        style: TextStyle(color: kCream, fontSize: 18),
-                      ),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: kPrimaryGreen,
-                      minimumSize: const Size.fromHeight(64),
-                      alignment: Alignment.center,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.camera_alt, color: kCream, size: 48),
-                    onPressed: () => _pickImage(fromCamera: true),
-                    label: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16.0),
-                      child: Text(
-                        'Camera',
-                        style: TextStyle(color: kCream, fontSize: 18),
-                      ),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: kPrimaryGreen,
-                      minimumSize: const Size.fromHeight(64),
-                      alignment: Alignment.center,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              );
-            } else if (_step == 1) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Step 2: Crop Photo (Optional)',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_originalImageBytes != null)
-                    Card(
-                      elevation: 4,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Image.memory(
-                          _freeCroppedImageBytes ?? _originalImageBytes!,
-                          height: 200,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      const Text('DPI:'),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 80,
-                        child: TextFormField(
-                          initialValue: _dpi.toString(),
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'DPI'),
-                          onChanged: (val) {
-                            final dpi = int.tryParse(val);
-                            if (dpi != null && dpi > 0) {
-                              setState(() {
-                                _dpi = dpi;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () async {
-                      if (_originalImageBytes == null) return;
-                      final cropped = await Navigator.push<Uint8List?>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CropScreen(
-                            imageBytes: _originalImageBytes!,
-                            aspectRatio: null,
-                            targetWidth: 0,
-                            targetHeight: 0,
-                            unit: 'cm',
-                            dpi: _dpi,
-                          ),
-                        ),
-                      );
-                      if (cropped != null) {
-                        setState(() {
-                          _freeCroppedImageBytes = cropped;
-                        });
-                      }
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: kPrimaryGreen,
-                      foregroundColor: kCream,
-                    ),
-                    child: const Text(
-                      'Crop Freely',
-                      style: TextStyle(color: kCream),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () {
-                      setState(() {
-                        _step = 2;
-                      });
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: kPrimaryGreen,
-                      foregroundColor: kCream,
-                    ),
-                    child: const Text(
-                      'Next: Select Passport Size',
-                      style: TextStyle(color: kCream),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _step = 0;
-                        _imageFile = null;
-                        _originalImageBytes = null;
-                        _freeCroppedImageBytes = null;
-                        _maskCroppedImageBytes = null;
-                        _finalImageBytes = null;
-                      });
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: kPrimaryGreen,
-                    ),
-                    child: const Text(
-                      'Back',
-                      style: TextStyle(color: kPrimaryGreen),
-                    ),
-                  ),
-                ],
-              );
-            } else if (_step == 2) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Step 3: Select Passport Size',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                  const SizedBox(height: 24),
-                  DropdownButtonFormField<String>(
-                    value: _selectedSize,
-                    items: _passportSizes.keys.map((String key) {
-                      return DropdownMenuItem<String>(
-                        value: key,
-                        child: Text(key),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedSize = newValue ?? _selectedSize;
-                      });
-                    },
-                    decoration: const InputDecoration(
-                      labelText: 'Passport Size',
-                    ),
-                  ),
-                  if (_selectedSize == 'Custom') ...[
-                    const SizedBox(height: 16),
-                    Row(
+      body: Column(
+        children: [
+          // Progress bar
+          LinearProgressIndicator(
+            value: (_step + 1) / _totalSteps,
+            minHeight: 8,
+            backgroundColor: kPrimaryGreen.withOpacity(0.2),
+            valueColor: const AlwaysStoppedAnimation<Color>(kPrimaryGreen),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Builder(
+                builder: (context) {
+                  // ...existing code...
+                  if (_step == 0) {
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: TextFormField(
-                            initialValue: _customWidth.toString(),
-                            keyboardType: TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'Width',
-                            ),
-                            onChanged: (val) {
-                              setState(() {
-                                _customWidth =
-                                    double.tryParse(val) ?? _customWidth;
-                              });
-                            },
+                        const Text(
+                          'Select or Take a Photo',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.black,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextFormField(
-                            initialValue: _customHeight.toString(),
-                            keyboardType: TextInputType.numberWithOptions(
-                              decimal: true,
+                        const SizedBox(height: 24),
+                        FilledButton.icon(
+                          icon: const Icon(
+                            Icons.photo_library,
+                            color: kCream,
+                            size: 48,
+                          ),
+                          onPressed: () => _pickImage(fromCamera: false),
+                          label: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16.0),
+                            child: Text(
+                              'Gallery',
+                              style: TextStyle(color: kCream, fontSize: 18),
                             ),
-                            decoration: const InputDecoration(
-                              labelText: 'Height',
-                            ),
-                            onChanged: (val) {
-                              setState(() {
-                                _customHeight =
-                                    double.tryParse(val) ?? _customHeight;
-                              });
-                            },
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: kPrimaryGreen,
+                            minimumSize: const Size.fromHeight(64),
+                            alignment: Alignment.center,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        DropdownButton<String>(
-                          value: _customUnit,
-                          items: ['cm', 'inch', 'px']
-                              .map(
-                                (u) =>
-                                    DropdownMenuItem(value: u, child: Text(u)),
-                              )
-                              .toList(),
-                          onChanged: (val) {
-                            setState(() {
-                              if (val != null) _customUnit = val;
-                            });
-                          },
+                        const SizedBox(height: 24),
+                        FilledButton.icon(
+                          icon: const Icon(
+                            Icons.camera_alt,
+                            color: kCream,
+                            size: 48,
+                          ),
+                          onPressed: () => _pickImage(fromCamera: true),
+                          label: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16.0),
+                            child: Text(
+                              'Camera',
+                              style: TextStyle(color: kCream, fontSize: 18),
+                            ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: kPrimaryGreen,
+                            minimumSize: const Size.fromHeight(64),
+                            alignment: Alignment.center,
+                          ),
                         ),
+                        const SizedBox(height: 24),
                       ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Text('DPI:'),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 80,
-                        child: TextFormField(
-                          initialValue: _dpi.toString(),
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'DPI'),
-                          onChanged: (val) {
-                            final dpi = int.tryParse(val);
-                            if (dpi != null && dpi > 0) {
-                              setState(() {
-                                _dpi = dpi;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  FilledButton(
-                    onPressed: () async {
-                      List<double> size;
-                      String unit = 'cm';
-                      if (_selectedSize == 'Custom') {
-                        size = [_customWidth, _customHeight];
-                        unit = _customUnit;
-                      } else {
-                        size = _passportSizes[_selectedSize]!;
-                        unit = 'cm';
-                      }
-                      final aspectRatio = size[0] / size[1];
-                      final cropSource =
-                          _freeCroppedImageBytes ?? _originalImageBytes;
-                      if (cropSource == null) return;
-                      final cropped = await Navigator.push<Uint8List?>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CropScreen(
-                            imageBytes: cropSource,
-                            aspectRatio: aspectRatio,
-                            targetWidth: size[0],
-                            targetHeight: size[1],
-                            unit: unit,
-                            dpi: _dpi,
+                    );
+                  } else if (_step == 1) {
+                    // ...existing code for step 1...
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Crop Photo (Optional)',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.black,
                           ),
                         ),
-                      );
-                      if (cropped != null) {
-                        setState(() {
-                          _maskCroppedImageBytes = cropped;
-                          _step = 3;
-                        });
-                        await _saveState();
-                      }
-                    },
-                    child: const Text('Next: Crop to Passport Size'),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _step = 1;
-                        _maskCroppedImageBytes = null;
-                        _finalImageBytes = null;
-                      });
-                    },
-                    child: const Text('Back'),
-                  ),
-                ],
-              );
-            } else if (_step == 3) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Step 4: Confirm Crop',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_maskCroppedImageBytes != null)
-                    Card(
-                      elevation: 4,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Image.memory(
-                          _maskCroppedImageBytes!,
-                          height: 200,
-                        ),
-                      ),
-                    ),
-                  if (_qualityWarning != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _qualityWarning!,
-                      style: const TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Text('DPI:'),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 80,
-                        child: TextFormField(
-                          initialValue: _dpi.toString(),
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'DPI'),
-                          onChanged: (val) {
-                            final dpi = int.tryParse(val);
-                            if (dpi != null && dpi > 0) {
-                              setState(() {
-                                _dpi = dpi;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: () async {
-                      await _processImage();
-                    },
-                    child: const Text('Confirm & Resize'),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _step = 2;
-                        _finalImageBytes = null;
-                      });
-                    },
-                    child: const Text('Back'),
-                  ),
-                ],
-              );
-            } else if (_step == 4) {
-              return Stack(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'Step 5: Final Preview',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (_finalImageBytes != null)
-                        Card(
-                          elevation: 4,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Image.memory(_finalImageBytes!, height: 200),
+                        const SizedBox(height: 16),
+                        if (_originalImageBytes != null)
+                          Card(
+                            elevation: 4,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Image.memory(
+                                _freeCroppedImageBytes ?? _originalImageBytes!,
+                                height: 200,
+                              ),
+                            ),
                           ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            const Text('DPI:'),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 80,
+                              child: TextFormField(
+                                initialValue: _dpi.toString(),
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'DPI',
+                                ),
+                                onChanged: (val) {
+                                  final dpi = int.tryParse(val);
+                                  if (dpi != null && dpi > 0) {
+                                    setState(() {
+                                      _dpi = dpi;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
                         ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          const Text('DPI:'),
-                          const SizedBox(width: 8),
-                          Text(_dpi.toString()),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      FilledButton.icon(
-                        icon: const Icon(Icons.save_alt, color: kCream),
-                        label: const Text(
-                          'Save to Gallery',
-                          style: TextStyle(color: kCream),
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: kPrimaryGreen,
-                          foregroundColor: kCream,
-                        ),
-                        onPressed: () async {
-                          if (_finalImageBytes == null) return;
-                          final result = await ImageGallerySaverPlus.saveImage(
-                            _finalImageBytes!,
-                            quality: 100,
-                            name:
-                                'resized_photo_${DateTime.now().millisecondsSinceEpoch}',
-                          );
-                          final isSuccess =
-                              (result['isSuccess'] ??
-                                  result['success'] ??
-                                  false) ==
-                              true;
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  isSuccess
-                                      ? 'Saved to gallery!'
-                                      : 'Failed to save.',
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: () async {
+                            if (_originalImageBytes == null) return;
+                            final cropped = await Navigator.push<Uint8List?>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => CropScreen(
+                                  imageBytes: _originalImageBytes!,
+                                  aspectRatio: null,
+                                  targetWidth: 0,
+                                  targetHeight: 0,
+                                  unit: 'cm',
+                                  dpi: _dpi,
                                 ),
                               ),
                             );
-                          }
-                          await _saveState();
-                          if (isSuccess && context.mounted) {
-                            // Show celebration animation
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (context) {
-                                return CelebrationPopper(
-                                  onDone: () {
-                                    Navigator.of(context).pop();
+                            if (cropped != null) {
+                              setState(() {
+                                _freeCroppedImageBytes = cropped;
+                              });
+                            }
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: kPrimaryGreen,
+                            foregroundColor: kCream,
+                          ),
+                          child: const Text(
+                            'Crop Freely',
+                            style: TextStyle(color: kCream),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: () {
+                            setState(() {
+                              _step = 2;
+                            });
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: kPrimaryGreen,
+                            foregroundColor: kCream,
+                          ),
+                          child: const Text(
+                            'Next: Select Passport Size',
+                            style: TextStyle(color: kCream),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _step = 0;
+                              _imageFile = null;
+                              _originalImageBytes = null;
+                              _freeCroppedImageBytes = null;
+                              _maskCroppedImageBytes = null;
+                              _finalImageBytes = null;
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: kPrimaryGreen,
+                          ),
+                          child: const Text(
+                            'Back',
+                            style: TextStyle(color: kPrimaryGreen),
+                          ),
+                        ),
+                      ],
+                    );
+                  } else if (_step == 2) {
+                    // ...existing code for step 2...
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Select Passport Size',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        DropdownButtonFormField<String>(
+                          value: _selectedSize,
+                          items: _passportSizes.keys.map((String key) {
+                            return DropdownMenuItem<String>(
+                              value: key,
+                              child: Text(key),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedSize = newValue ?? _selectedSize;
+                            });
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Passport Size',
+                          ),
+                        ),
+                        if (_selectedSize == 'Custom') ...[
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: _customWidth.toString(),
+                                  keyboardType: TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Width',
+                                  ),
+                                  onChanged: (val) {
                                     setState(() {
-                                      _step = 0;
-                                      _imageFile = null;
-                                      _originalImageBytes = null;
-                                      _freeCroppedImageBytes = null;
-                                      _maskCroppedImageBytes = null;
-                                      _finalImageBytes = null;
+                                      _customWidth =
+                                          double.tryParse(val) ?? _customWidth;
                                     });
                                   },
-                                );
-                              },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: _customHeight.toString(),
+                                  keyboardType: TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Height',
+                                  ),
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _customHeight =
+                                          double.tryParse(val) ?? _customHeight;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              DropdownButton<String>(
+                                value: _customUnit,
+                                items: ['cm', 'inch', 'px']
+                                    .map(
+                                      (u) => DropdownMenuItem(
+                                        value: u,
+                                        child: Text(u),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (val) {
+                                  setState(() {
+                                    if (val != null) _customUnit = val;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            const Text('DPI:'),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 80,
+                              child: TextFormField(
+                                initialValue: _dpi.toString(),
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'DPI',
+                                ),
+                                onChanged: (val) {
+                                  final dpi = int.tryParse(val);
+                                  if (dpi != null && dpi > 0) {
+                                    setState(() {
+                                      _dpi = dpi;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        FilledButton(
+                          onPressed: () async {
+                            List<double> size;
+                            String unit = 'cm';
+                            if (_selectedSize == 'Custom') {
+                              size = [_customWidth, _customHeight];
+                              unit = _customUnit;
+                            } else {
+                              size = _passportSizes[_selectedSize]!;
+                              unit = 'cm';
+                            }
+                            final aspectRatio = size[0] / size[1];
+                            final cropSource =
+                                _freeCroppedImageBytes ?? _originalImageBytes;
+                            if (cropSource == null) return;
+                            final cropped = await Navigator.push<Uint8List?>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => CropScreen(
+                                  imageBytes: cropSource,
+                                  aspectRatio: aspectRatio,
+                                  targetWidth: size[0],
+                                  targetHeight: size[1],
+                                  unit: unit,
+                                  dpi: _dpi,
+                                ),
+                              ),
                             );
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            _step = 3;
-                            _finalImageBytes = null;
-                          });
-                        },
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          side: const BorderSide(color: kPrimaryGreen),
+                            if (cropped != null) {
+                              setState(() {
+                                _maskCroppedImageBytes = cropped;
+                                _step = 3;
+                              });
+                              await _saveState();
+                            }
+                          },
+                          child: const Text('Next: Crop to Passport Size'),
                         ),
-                        child: const Text(
-                          'Back',
-                          style: TextStyle(color: Colors.white),
+                        const SizedBox(height: 16),
+                        OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _step = 1;
+                              _maskCroppedImageBytes = null;
+                              _finalImageBytes = null;
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: kPrimaryGreen,
+                          ),
+                          child: const Text(
+                            'Back',
+                            style: TextStyle(color: kPrimaryGreen),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-
-              // celebration popper moved to widgets/celebration_popper.dart
-            } else {
-              return const SizedBox.shrink();
-            }
-          },
-        ),
+                      ],
+                    );
+                  } else if (_step == 3) {
+                    // ...existing code for step 3...
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Confirm Crop',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_maskCroppedImageBytes != null)
+                          Card(
+                            elevation: 4,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Image.memory(
+                                _maskCroppedImageBytes!,
+                                height: 200,
+                              ),
+                            ),
+                          ),
+                        if (_qualityWarning != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            _qualityWarning!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            const Text('DPI:'),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 80,
+                              child: TextFormField(
+                                initialValue: _dpi.toString(),
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'DPI',
+                                ),
+                                onChanged: (val) {
+                                  final dpi = int.tryParse(val);
+                                  if (dpi != null && dpi > 0) {
+                                    setState(() {
+                                      _dpi = dpi;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        FilledButton(
+                          onPressed: () async {
+                            await _processImage();
+                          },
+                          child: const Text('Confirm & Resize'),
+                        ),
+                        const SizedBox(height: 16),
+                        OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _step = 2;
+                              _finalImageBytes = null;
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: kPrimaryGreen,
+                          ),
+                          child: const Text(
+                            'Back',
+                            style: TextStyle(color: kPrimaryGreen),
+                          ),
+                        ),
+                      ],
+                    );
+                  } else if (_step == 4) {
+                    // ...existing code for step 4...
+                    return Stack(
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text(
+                              'Final Preview',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            if (_finalImageBytes != null)
+                              Card(
+                                elevation: 4,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Container(
+                                    height: 200,
+                                    alignment: Alignment.center,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: kPrimaryGreen,
+                                          width: 3,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: Image.memory(
+                                        _finalImageBytes!,
+                                        height: 200,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                const Text('DPI:'),
+                                const SizedBox(width: 8),
+                                Text(_dpi.toString()),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                            FilledButton.icon(
+                              icon: const Icon(Icons.save_alt, color: kCream),
+                              label: const Text(
+                                'Save to Gallery',
+                                style: TextStyle(color: kCream),
+                              ),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: kPrimaryGreen,
+                                foregroundColor: kCream,
+                              ),
+                              onPressed: () async {
+                                if (_finalImageBytes == null) return;
+                                final result =
+                                    await ImageGallerySaverPlus.saveImage(
+                                      _finalImageBytes!,
+                                      quality: 100,
+                                      name:
+                                          'resized_photo_${DateTime.now().millisecondsSinceEpoch}',
+                                    );
+                                final isSuccess =
+                                    (result['isSuccess'] ??
+                                        result['success'] ??
+                                        false) ==
+                                    true;
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        isSuccess
+                                            ? 'Saved to gallery!'
+                                            : 'Failed to save.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                                await _saveState();
+                                if (isSuccess && context.mounted) {
+                                  // Show celebration animation
+                                  showDialog(
+                                    context: context,
+                                    barrierDismissible: false,
+                                    builder: (context) {
+                                      return CelebrationPopper(
+                                        onDone: () {
+                                          Navigator.of(context).pop();
+                                          setState(() {
+                                            _step = 0;
+                                            _imageFile = null;
+                                            _originalImageBytes = null;
+                                            _freeCroppedImageBytes = null;
+                                            _maskCroppedImageBytes = null;
+                                            _finalImageBytes = null;
+                                          });
+                                        },
+                                      );
+                                    },
+                                  );
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            OutlinedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _step = 3;
+                                  _finalImageBytes = null;
+                                });
+                              },
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                side: const BorderSide(color: kPrimaryGreen),
+                                foregroundColor: kPrimaryGreen,
+                              ),
+                              child: const Text(
+                                'Back',
+                                style: TextStyle(color: kPrimaryGreen),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+                  // Fallback
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

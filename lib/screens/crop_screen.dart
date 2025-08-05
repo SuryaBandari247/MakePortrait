@@ -160,12 +160,30 @@ class _CropScreenState extends State<CropScreen> {
                     spacing: 8,
                     children: List.generate(_ratios.length, (i) {
                       final selected = i == _selectedRatioIndex;
-                      return ChoiceChip(
-                        label: Text(_ratios[i]['label']),
-                        selected: selected,
-                        onSelected: (val) {
-                          if (val) _onAspectRatioSelected(i);
-                        },
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                        child: OutlinedButton(
+                          onPressed: () => _onAspectRatioSelected(i),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: selected
+                                ? kPrimaryGreen
+                                : Colors.transparent,
+                            side: BorderSide(color: kPrimaryGreen, width: 2),
+                            foregroundColor: selected ? kCream : kPrimaryGreen,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          child: Text(
+                            _ratios[i]['label'],
+                            style: TextStyle(
+                              color: selected ? kCream : kPrimaryGreen,
+                              fontWeight: selected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
                       );
                     }),
                   ),
