@@ -6,7 +6,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
+import '../widgets/celebration_popper.dart';
+import 'package:flutter/scheduler.dart';
 import '../screens/crop_screen.dart';
+import '../screens/photo_type_selection_screen.dart';
+import '../screens/collage_dimension_screen.dart';
 
 class PhotoResizeHomePage extends StatefulWidget {
   const PhotoResizeHomePage({super.key});
@@ -16,6 +20,7 @@ class PhotoResizeHomePage extends StatefulWidget {
 }
 
 class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
+  String? _qualityWarning;
   static const _prefsKey = 'photo_resize_app_state';
 
   Future<void> _saveState() async {
@@ -83,6 +88,10 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
   }
 
   int _step = 0;
+  bool _isCollage = false;
+  double? _collageWidth;
+  double? _collageHeight;
+  String? _collageUnit;
   XFile? _imageFile;
   Uint8List? _originalImageBytes;
   Uint8List? _freeCroppedImageBytes;
@@ -104,7 +113,7 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
   String _customUnit = 'cm';
   double _customWidth = 3.5;
   double _customHeight = 4.5;
-  final int _dpi = 300;
+  int _dpi = 300;
 
   Future<void> _pickImage({bool fromCamera = false}) async {
     final picker = ImagePicker();
@@ -119,6 +128,44 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
         _freeCroppedImageBytes = null;
         _maskCroppedImageBytes = null;
         _finalImageBytes = null;
+      });
+      // Show the new screen for single/collage selection
+      final isCollage = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PhotoTypeSelectionScreen(
+            onSelection: (val) {
+              Navigator.pop(context, val);
+            },
+          ),
+        ),
+      );
+      bool collage = isCollage ?? false;
+      double? collageWidth;
+      double? collageHeight;
+      String? collageUnit;
+      if (collage) {
+        final result = await Navigator.push<Map<String, dynamic>>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CollageDimensionScreen(
+              onSubmit: (w, h, u) {
+                Navigator.pop(context, {'width': w, 'height': h, 'unit': u});
+              },
+            ),
+          ),
+        );
+        if (result != null) {
+          collageWidth = result['width'] as double;
+          collageHeight = result['height'] as double;
+          collageUnit = result['unit'] as String;
+        }
+      }
+      setState(() {
+        _isCollage = collage;
+        _collageWidth = collageWidth;
+        _collageHeight = collageHeight;
+        _collageUnit = collageUnit;
         _step = 1;
       });
       await _saveState();
@@ -134,19 +181,106 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
     final heightPx = (heightCm / 2.54 * _dpi).round();
     img.Image? image = img.decodeImage(_maskCroppedImageBytes!);
     if (image == null) return;
+
+    // Quality check: warn if cropped image is too small
+    if (image.width < widthPx) {
+      setState(() {
+        _qualityWarning =
+            "Image quality is low. The printed photo may appear blurry.";
+      });
+    } else {
+      setState(() {
+        _qualityWarning = null;
+      });
+    }
+
     final resized = img.copyResize(
       image,
       width: widthPx,
       height: heightPx,
       interpolation: img.Interpolation.linear,
     );
-    final processedBytes = kIsWeb
-        ? img.encodePng(resized)
-        : img.encodeJpg(resized);
-    setState(() {
-      _finalImageBytes = Uint8List.fromList(processedBytes);
-      _step = 4;
-    });
+    if (_isCollage &&
+        _collageWidth != null &&
+        _collageHeight != null &&
+        _collageUnit != null) {
+      // Calculate collage size in pixels
+      double collageWidthCm = _collageWidth!;
+      double collageHeightCm = _collageHeight!;
+      if (_collageUnit == 'inch') {
+        collageWidthCm = _collageWidth! * 2.54;
+        collageHeightCm = _collageHeight! * 2.54;
+      }
+      final collageWidthPx = (collageWidthCm / 2.54 * _dpi).round();
+      final collageHeightPx = (collageHeightCm / 2.54 * _dpi).round();
+      // Calculate how many photos fit
+      final cols = (collageWidthPx / widthPx).floor();
+      final rows = (collageHeightPx / heightPx).floor();
+      final collage = img.Image(width: collageWidthPx, height: collageHeightPx);
+      // Fill with white background (manual for compatibility)
+      final white = img.ColorInt32.rgb(255, 255, 255);
+      final marker = img.ColorInt32.rgb(
+        170,
+        170,
+        170,
+      ); // light gray for cut lines
+      final margin = 10; // px margin between images
+      for (int y = 0; y < collageHeightPx; y++) {
+        for (int x = 0; x < collageWidthPx; x++) {
+          collage.setPixel(x, y, white);
+        }
+      }
+      for (int row = 0; row < rows; row++) {
+        for (int col = 0; col < cols; col++) {
+          final x = col * (widthPx + margin);
+          final y = row * (heightPx + margin);
+          // Draw the image
+          for (int iy = 0; iy < heightPx; iy++) {
+            for (int ix = 0; ix < widthPx; ix++) {
+              final px = resized.getPixel(ix, iy);
+              int cx = x + ix;
+              int cy = y + iy;
+              if (cx < collageWidthPx && cy < collageHeightPx) {
+                collage.setPixel(cx, cy, px);
+              }
+            }
+          }
+        }
+      }
+      // Draw vertical markers
+      for (int col = 1; col < cols; col++) {
+        int markerX = col * (widthPx + margin) - margin;
+        for (int y = 0; y < collageHeightPx; y++) {
+          if (markerX >= 0 && markerX < collageWidthPx) {
+            collage.setPixel(markerX, y, marker);
+          }
+        }
+      }
+      // Draw horizontal markers
+      for (int row = 1; row < rows; row++) {
+        int markerY = row * (heightPx + margin) - margin;
+        for (int x = 0; x < collageWidthPx; x++) {
+          if (markerY >= 0 && markerY < collageHeightPx) {
+            collage.setPixel(x, markerY, marker);
+          }
+        }
+      }
+      final collageBytes = kIsWeb
+          ? img.encodePng(collage)
+          : img.encodeJpg(collage);
+      setState(() {
+        _finalImageBytes = Uint8List.fromList(collageBytes);
+        _step = 4;
+      });
+    } else {
+      final processedBytes = kIsWeb
+          ? img.encodePng(resized)
+          : img.encodeJpg(resized);
+      setState(() {
+        _finalImageBytes = Uint8List.fromList(processedBytes);
+        _step = 4;
+      });
+    }
     await _saveState();
   }
 
@@ -203,6 +337,30 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('DPI:'),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 80,
+                        child: TextFormField(
+                          initialValue: _dpi.toString(),
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'DPI'),
+                          onChanged: (val) {
+                            final dpi = int.tryParse(val);
+                            if (dpi != null && dpi > 0) {
+                              setState(() {
+                                _dpi = dpi;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               );
             } else if (_step == 1) {
@@ -226,6 +384,29 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                       ),
                     ),
                   const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      const Text('DPI:'),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 80,
+                        child: TextFormField(
+                          initialValue: _dpi.toString(),
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'DPI'),
+                          onChanged: (val) {
+                            final dpi = int.tryParse(val);
+                            if (dpi != null && dpi > 0) {
+                              setState(() {
+                                _dpi = dpi;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   FilledButton(
                     onPressed: () async {
                       if (_originalImageBytes == null) return;
@@ -358,6 +539,29 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                       ],
                     ),
                   ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Text('DPI:'),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 80,
+                        child: TextFormField(
+                          initialValue: _dpi.toString(),
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'DPI'),
+                          onChanged: (val) {
+                            final dpi = int.tryParse(val);
+                            if (dpi != null && dpi > 0) {
+                              setState(() {
+                                _dpi = dpi;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 32),
                   FilledButton(
                     onPressed: () async {
@@ -430,6 +634,39 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                         ),
                       ),
                     ),
+                  if (_qualityWarning != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _qualityWarning!,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Text('DPI:'),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 80,
+                        child: TextFormField(
+                          initialValue: _dpi.toString(),
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'DPI'),
+                          onChanged: (val) {
+                            final dpi = int.tryParse(val);
+                            if (dpi != null && dpi > 0) {
+                              setState(() {
+                                _dpi = dpi;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed: () async {
@@ -450,63 +687,104 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                 ],
               );
             } else if (_step == 4) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              return Stack(
                 children: [
-                  const Text(
-                    'Step 5: Final Preview',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_finalImageBytes != null)
-                    Card(
-                      elevation: 4,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Image.memory(_finalImageBytes!, height: 200),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Step 5: Final Preview',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
-                    ),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.save_alt),
-                    label: const Text('Save to Gallery'),
-                    onPressed: () async {
-                      if (_finalImageBytes == null) return;
-                      final result = await ImageGallerySaverPlus.saveImage(
-                        _finalImageBytes!,
-                        quality: 100,
-                        name:
-                            'resized_photo_${DateTime.now().millisecondsSinceEpoch}',
-                      );
-                      final isSuccess =
-                          (result['isSuccess'] ?? result['success'] ?? false) ==
-                          true;
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              isSuccess
-                                  ? 'Saved to gallery!'
-                                  : 'Failed to save.',
-                            ),
+                      const SizedBox(height: 16),
+                      if (_finalImageBytes != null)
+                        Card(
+                          elevation: 4,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Image.memory(_finalImageBytes!, height: 200),
                           ),
-                        );
-                      }
-                      await _saveState();
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _step = 3;
-                        _finalImageBytes = null;
-                      });
-                    },
-                    child: const Text('Back'),
+                        ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          const Text('DPI:'),
+                          const SizedBox(width: 8),
+                          Text(_dpi.toString()),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      FilledButton.icon(
+                        icon: const Icon(Icons.save_alt),
+                        label: const Text('Save to Gallery'),
+                        onPressed: () async {
+                          if (_finalImageBytes == null) return;
+                          final result = await ImageGallerySaverPlus.saveImage(
+                            _finalImageBytes!,
+                            quality: 100,
+                            name:
+                                'resized_photo_${DateTime.now().millisecondsSinceEpoch}',
+                          );
+                          final isSuccess =
+                              (result['isSuccess'] ??
+                                  result['success'] ??
+                                  false) ==
+                              true;
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  isSuccess
+                                      ? 'Saved to gallery!'
+                                      : 'Failed to save.',
+                                ),
+                              ),
+                            );
+                          }
+                          await _saveState();
+                          if (isSuccess && context.mounted) {
+                            // Show celebration animation
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (context) {
+                                return CelebrationPopper(
+                                  onDone: () {
+                                    Navigator.of(context).pop();
+                                    setState(() {
+                                      _step = 0;
+                                      _imageFile = null;
+                                      _originalImageBytes = null;
+                                      _freeCroppedImageBytes = null;
+                                      _maskCroppedImageBytes = null;
+                                      _finalImageBytes = null;
+                                    });
+                                  },
+                                );
+                              },
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _step = 3;
+                            _finalImageBytes = null;
+                          });
+                        },
+                        child: const Text('Back'),
+                      ),
+                    ],
                   ),
                 ],
               );
+
+              // celebration popper moved to widgets/celebration_popper.dart
             } else {
               return const SizedBox.shrink();
             }
