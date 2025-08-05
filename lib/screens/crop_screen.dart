@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import 'package:crop_your_image/crop_your_image.dart';
 import '../widgets/plus_control.dart';
 
@@ -19,8 +20,8 @@ class CropScreen extends StatefulWidget {
     required this.unit,
     required this.dpi,
     this.selectedSize,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<CropScreen> createState() => _CropScreenState();
@@ -89,13 +90,17 @@ class _CropScreenState extends State<CropScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Crop Image'),
+        backgroundColor: kBannerGold,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           TextButton(
             onPressed: _cropping ? null : () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+            child: const Text('Cancel', style: TextStyle(color: kCream)),
           ),
         ],
       ),
+      backgroundColor: kCream,
       body: SafeArea(
         child: Column(
           children: [
@@ -103,12 +108,12 @@ class _CropScreenState extends State<CropScreen> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, color: Colors.blueGrey),
+                  const Icon(Icons.info_outline, color: kPrimaryGreen),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
                       'Note: If you zoom in a lot or select a very small crop area, the output image quality may be low.',
-                      style: TextStyle(color: Colors.blueGrey),
+                      style: TextStyle(color: kPrimaryGreen),
                     ),
                   ),
                 ],
@@ -139,7 +144,7 @@ class _CropScreenState extends State<CropScreen> {
                       'Crop the image to the required passport size. The crop mask is fixed to the target dimensions or aspect ratio ($dimStr).',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue,
+                        color: kPrimaryGreen,
                       ),
                       textAlign: TextAlign.center,
                     );
@@ -172,8 +177,8 @@ class _CropScreenState extends State<CropScreen> {
                 controller: _controller,
                 image: widget.imageBytes,
                 aspectRatio: _aspectRatio,
-                baseColor: Colors.black,
-                maskColor: Colors.black.withOpacity(0.4),
+                baseColor: kPrimaryGreen,
+                maskColor: kPrimaryGreen.withOpacity(0.4),
                 onStatusChanged: (status) {
                   if (status == CropStatus.ready && _aspectRatio == null) {
                     _controller.aspectRatio = null;
@@ -239,7 +244,7 @@ class _CropScreenState extends State<CropScreen> {
                 radius: 20,
                 willUpdateScale: (newScale) => newScale < 5,
                 cornerDotBuilder: (size, edgeAlignment) =>
-                    PlusControl(backgroundColor: Colors.black),
+                    PlusControl(backgroundColor: kPrimaryGreen),
                 clipBehavior: Clip.none,
                 interactive: true,
               ),
@@ -251,7 +256,13 @@ class _CropScreenState extends State<CropScreen> {
                 children: [
                   OutlinedButton(
                     onPressed: _cropping ? null : () => Navigator.pop(context),
-                    child: const Text('Cancel'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: kPrimaryGreen,
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(color: kPrimaryGreen),
+                    ),
                   ),
                   FilledButton(
                     onPressed: (_cropping || !_cropperReady)
@@ -260,13 +271,20 @@ class _CropScreenState extends State<CropScreen> {
                             setState(() => _cropping = true);
                             _controller.crop();
                           },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: kPrimaryGreen,
+                      foregroundColor: kCream,
+                    ),
                     child: _cropping
                         ? const SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Apply Crop'),
+                        : const Text(
+                            'Apply Crop',
+                            style: TextStyle(color: kCream),
+                          ),
                   ),
                 ],
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/photo_resize_home_page.dart';
+import 'theme/app_colors.dart';
 
 void main() {
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -18,19 +19,16 @@ class PhotoResizeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const lightBlue = Color(0xFF49A6E9); // #49A6E9
-    const blueOverlay = Color(0x3349A6E9); // 20% opacity for overlays
+    // Use centralized color palette from app_colors.dart
     const red = Color(0xFFF20505); // #F20505
     final colorScheme = ColorScheme(
       brightness: Brightness.light,
-      primary: lightBlue,
-      onPrimary: Colors.white,
+      primary: kPrimaryGreen,
+      onPrimary: kCream,
       secondary: red,
       onSecondary: Colors.white,
       error: red,
       onError: Colors.white,
-      background: Colors.white,
-      onBackground: Colors.black,
       surface: Colors.white,
       onSurface: Colors.black,
     );
@@ -41,50 +39,59 @@ class PhotoResizeApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.transparent,
         appBarTheme: const AppBarTheme(
-          backgroundColor: lightBlue,
+          backgroundColor: AppColors.bannerGold,
           elevation: 0,
-          foregroundColor: Colors.white,
-          iconTheme: IconThemeData(color: Colors.white),
+          foregroundColor: Colors.black,
+          iconTheme: IconThemeData(color: Colors.black),
         ),
         cardTheme: const CardThemeData(
           color: Colors.white,
           elevation: 4,
-          shadowColor: Color(0x2249A6E9),
+          shadowColor: Color(0x22000000),
           margin: EdgeInsets.symmetric(vertical: 8),
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: ButtonStyle(
-            backgroundColor: MaterialStatePropertyAll(lightBlue),
-            foregroundColor: MaterialStatePropertyAll(Colors.white),
-            overlayColor: MaterialStatePropertyAll(blueOverlay),
+            backgroundColor: WidgetStatePropertyAll(AppColors.primaryGreen),
+            foregroundColor: WidgetStatePropertyAll(AppColors.cream),
+            overlayColor: WidgetStatePropertyAll(
+              Color(0x338BB174),
+            ), // 20% opacity of kPrimaryGreen
+            textStyle: WidgetStatePropertyAll(
+              TextStyle(color: AppColors.cream),
+            ),
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: MaterialStatePropertyAll(lightBlue),
-            side: MaterialStatePropertyAll(BorderSide(color: lightBlue)),
-            overlayColor: MaterialStatePropertyAll(blueOverlay),
+            backgroundColor: WidgetStatePropertyAll(Colors.transparent),
+            foregroundColor: WidgetStatePropertyAll(Colors.black),
+            side: WidgetStatePropertyAll(
+              BorderSide(color: AppColors.primaryGreen),
+            ),
+            overlayColor: WidgetStatePropertyAll(Color(0x338BB174)),
+            textStyle: WidgetStatePropertyAll(TextStyle(color: Colors.black)),
           ),
         ),
         dropdownMenuTheme: DropdownMenuThemeData(
           inputDecorationTheme: const InputDecorationTheme(
             focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: lightBlue),
+              borderSide: BorderSide(color: AppColors.primaryGreen),
             ),
           ),
         ),
         inputDecorationTheme: const InputDecorationTheme(
           focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: lightBlue),
+            borderSide: BorderSide(color: AppColors.primaryGreen),
           ),
           border: OutlineInputBorder(),
         ),
         progressIndicatorTheme: const ProgressIndicatorThemeData(
-          color: lightBlue,
+          color: AppColors.primaryGreen,
         ),
         snackBarTheme: const SnackBarThemeData(
-          backgroundColor: lightBlue,
-          contentTextStyle: TextStyle(color: Colors.white),
+          backgroundColor: AppColors.primaryGreen,
+          contentTextStyle: TextStyle(color: AppColors.cream),
         ),
       ),
       home: const GradientBackground(child: PhotoResizeHomePage()),

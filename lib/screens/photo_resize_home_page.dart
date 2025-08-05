@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,10 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import '../widgets/celebration_popper.dart';
-import 'package:flutter/scheduler.dart';
+
 import '../screens/crop_screen.dart';
 import '../screens/photo_type_selection_screen.dart';
 import '../screens/collage_dimension_screen.dart';
+
+import '../theme/app_colors.dart';
 
 class PhotoResizeHomePage extends StatefulWidget {
   const PhotoResizeHomePage({super.key});
@@ -74,11 +75,6 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
             : null;
       });
     } catch (_) {}
-  }
-
-  Future<void> _clearSavedState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefsKey);
   }
 
   @override
@@ -294,8 +290,15 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kCream,
       appBar: AppBar(
-        title: const Text('Photo Resize App'),
+        backgroundColor: kBannerGold,
+        elevation: 0,
+        title: const Text(
+          'Photo Resize App',
+          style: TextStyle(color: Colors.black),
+        ),
+        iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           if (_step == 1 || _step == 2 || _step == 3 || _step == 4)
             IconButton(
@@ -315,52 +318,51 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                 children: [
                   const Text(
                     'Step 1: Select or Take a Photo',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: Colors.black,
+                    ),
                   ),
                   const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          icon: const Icon(Icons.photo_library),
-                          onPressed: () => _pickImage(fromCamera: false),
-                          label: const Text('Gallery'),
-                        ),
+                  FilledButton.icon(
+                    icon: const Icon(
+                      Icons.photo_library,
+                      color: kCream,
+                      size: 48,
+                    ),
+                    onPressed: () => _pickImage(fromCamera: false),
+                    label: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16.0),
+                      child: Text(
+                        'Gallery',
+                        style: TextStyle(color: kCream, fontSize: 18),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: FilledButton.icon(
-                          icon: const Icon(Icons.camera_alt),
-                          onPressed: () => _pickImage(fromCamera: true),
-                          label: const Text('Camera'),
-                        ),
-                      ),
-                    ],
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: kPrimaryGreen,
+                      minimumSize: const Size.fromHeight(64),
+                      alignment: Alignment.center,
+                    ),
                   ),
                   const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('DPI:'),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 80,
-                        child: TextFormField(
-                          initialValue: _dpi.toString(),
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'DPI'),
-                          onChanged: (val) {
-                            final dpi = int.tryParse(val);
-                            if (dpi != null && dpi > 0) {
-                              setState(() {
-                                _dpi = dpi;
-                              });
-                            }
-                          },
-                        ),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.camera_alt, color: kCream, size: 48),
+                    onPressed: () => _pickImage(fromCamera: true),
+                    label: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16.0),
+                      child: Text(
+                        'Camera',
+                        style: TextStyle(color: kCream, fontSize: 18),
                       ),
-                    ],
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: kPrimaryGreen,
+                      minimumSize: const Size.fromHeight(64),
+                      alignment: Alignment.center,
+                    ),
                   ),
+                  const SizedBox(height: 24),
                 ],
               );
             } else if (_step == 1) {
@@ -369,7 +371,11 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                 children: [
                   const Text(
                     'Step 2: Crop Photo (Optional)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: Colors.black,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (_originalImageBytes != null)
@@ -429,7 +435,14 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                         });
                       }
                     },
-                    child: const Text('Crop Freely'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: kPrimaryGreen,
+                      foregroundColor: kCream,
+                    ),
+                    child: const Text(
+                      'Crop Freely',
+                      style: TextStyle(color: kCream),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   FilledButton(
@@ -438,7 +451,14 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                         _step = 2;
                       });
                     },
-                    child: const Text('Next: Select Passport Size'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: kPrimaryGreen,
+                      foregroundColor: kCream,
+                    ),
+                    child: const Text(
+                      'Next: Select Passport Size',
+                      style: TextStyle(color: kCream),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   OutlinedButton(
@@ -452,7 +472,13 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                         _finalImageBytes = null;
                       });
                     },
-                    child: const Text('Back'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: kPrimaryGreen,
+                    ),
+                    child: const Text(
+                      'Back',
+                      style: TextStyle(color: kPrimaryGreen),
+                    ),
                   ),
                 ],
               );
@@ -718,8 +744,15 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                       ),
                       const SizedBox(height: 24),
                       FilledButton.icon(
-                        icon: const Icon(Icons.save_alt),
-                        label: const Text('Save to Gallery'),
+                        icon: const Icon(Icons.save_alt, color: kCream),
+                        label: const Text(
+                          'Save to Gallery',
+                          style: TextStyle(color: kCream),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: kPrimaryGreen,
+                          foregroundColor: kCream,
+                        ),
                         onPressed: () async {
                           if (_finalImageBytes == null) return;
                           final result = await ImageGallerySaverPlus.saveImage(
@@ -777,7 +810,14 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                             _finalImageBytes = null;
                           });
                         },
-                        child: const Text('Back'),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          side: const BorderSide(color: kPrimaryGreen),
+                        ),
+                        child: const Text(
+                          'Back',
+                          style: TextStyle(color: Colors.white),
+                        ),
                       ),
                     ],
                   ),
