@@ -220,6 +220,61 @@ class _CropScreenState extends State<CropScreen> {
                     setState(() => _cropperReady = true);
                   }
                 },
+                // Prevent crop area from going out of bounds
+                onMoved: (rect, imageRect) {
+                  // Account for corner controls size to prevent them from going off screen
+                  const double cornerControlSize = 28.0;
+                  const double safetyMargin = 8.0;
+                  const double totalMargin = cornerControlSize + safetyMargin;
+
+                  // Get viewport bounds
+                  final RenderBox renderBox =
+                      context.findRenderObject() as RenderBox;
+                  final Size viewportSize = renderBox.size;
+
+                  // Calculate safe bounds
+                  final double minLeft = totalMargin;
+                  final double minTop = totalMargin;
+                  final double maxRight = viewportSize.width - totalMargin;
+                  final double maxBottom = viewportSize.height - totalMargin;
+
+                  // Check if any corner would be outside safe bounds
+                  if (rect.left < minLeft ||
+                      rect.top < minTop ||
+                      rect.right > maxRight ||
+                      rect.bottom > maxBottom) {
+                    // Clamp the rect to safe bounds
+                    double newLeft = rect.left.clamp(
+                      minLeft,
+                      maxRight - rect.width,
+                    );
+                    double newTop = rect.top.clamp(
+                      minTop,
+                      maxBottom - rect.height,
+                    );
+                    double newWidth = rect.width;
+                    double newHeight = rect.height;
+
+                    // Adjust width/height if needed
+                    if (newLeft + newWidth > maxRight) {
+                      newWidth = maxRight - newLeft;
+                    }
+                    if (newTop + newHeight > maxBottom) {
+                      newHeight = maxBottom - newTop;
+                    }
+
+                    // Update the crop area to safe bounds
+                    final safeRect = Rect.fromLTWH(
+                      newLeft,
+                      newTop,
+                      newWidth,
+                      newHeight,
+                    );
+                    _lastCropRect = safeRect;
+                  } else {
+                    _lastCropRect = rect;
+                  }
+                },
                 onCropped: (result) async {
                   Uint8List? bytes;
                   if (result is CropSuccess) {
@@ -236,20 +291,37 @@ class _CropScreenState extends State<CropScreen> {
                   imageRect,
                 ) {
                   Rect rect;
+                  // Account for corner controls (plus signs) - they are 28x28 pixels
+                  const double cornerControlSize = 28.0;
+                  const double safetyMargin = 8.0;
+                  const double totalMargin = cornerControlSize + safetyMargin;
+
                   if (_aspectRatio == null) {
-                    const scale = 0.8;
-                    final w = imageRect.width * scale;
-                    final h = imageRect.height * scale;
-                    final l = imageRect.left + (imageRect.width - w) / 2;
-                    final t = imageRect.top + (imageRect.height - h) / 2;
+                    // For free aspect ratio, use a more conservative scale and ensure padding
+                    const scale = 0.7;
+                    final w = (imageRect.width * scale).clamp(
+                      100.0,
+                      viewportRect.width - totalMargin * 2,
+                    );
+                    final h = (imageRect.height * scale).clamp(
+                      100.0,
+                      viewportRect.height - totalMargin * 2,
+                    );
+                    final l = viewportRect.left + (viewportRect.width - w) / 2;
+                    final t = viewportRect.top + (viewportRect.height - h) / 2;
                     rect = Rect.fromLTWH(l, t, w, h);
                   } else {
-                    const double padX = 24;
-                    const double padY = 32;
-                    final double maxWidth = viewportRect.width - padX * 2;
-                    final double maxHeight = viewportRect.height - padY * 2;
+                    // For fixed aspect ratio, ensure corner controls stay within bounds
+                    final double padX = totalMargin;
+                    final double padY = totalMargin;
+                    final double maxWidth = (viewportRect.width - padX * 2)
+                        .clamp(100.0, double.infinity);
+                    final double maxHeight = (viewportRect.height - padY * 2)
+                        .clamp(100.0, double.infinity);
+
                     double cropWidth = maxWidth;
                     double cropHeight = maxHeight;
+
                     if (_aspectRatio! > 0) {
                       if (maxWidth / maxHeight > _aspectRatio!) {
                         cropHeight = maxHeight;
@@ -259,12 +331,18 @@ class _CropScreenState extends State<CropScreen> {
                         cropHeight = cropWidth / _aspectRatio!;
                       }
                     }
+
+                    // Ensure minimum size
+                    cropWidth = cropWidth.clamp(100.0, maxWidth);
+                    cropHeight = cropHeight.clamp(100.0, maxHeight);
+
                     final double left =
                         viewportRect.left +
                         (viewportRect.width - cropWidth) / 2;
                     final double top =
                         viewportRect.top +
                         (viewportRect.height - cropHeight) / 2;
+
                     rect = Rect.fromLTWH(left, top, cropWidth, cropHeight);
                   }
                   _lastCropRect = rect;

@@ -304,14 +304,25 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
           children: [
             Image.asset('assets/make_portrait_logo.png', width: 32, height: 32),
             const SizedBox(width: 12),
-            const Text(
-              'MakePortrait',
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
+            Expanded(
+              child: Text(
+                _step == 0
+                    ? 'Select or Click'
+                    : _step == 1
+                    ? 'Select Photo Type'
+                    : _step == 2
+                    ? 'Set Dimensions'
+                    : _step == 3
+                    ? 'Crop Image'
+                    : _step == 4
+                    ? 'Preview & Save'
+                    : '',
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

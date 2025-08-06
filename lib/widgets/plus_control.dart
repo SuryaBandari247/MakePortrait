@@ -13,7 +13,7 @@ class PlusControl extends StatelessWidget {
       width: 28,
       height: 28,
       child: Center(
-        child: Container(
+        child: SizedBox(
           width: 24,
           height: 24,
           child: CustomPaint(painter: _PlusPainter(plusColor)),
