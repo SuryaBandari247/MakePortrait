@@ -334,49 +334,36 @@ class _OutputSelectionScreenState extends State<OutputSelectionScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Column(
+                    Row(
                       children: [
-                        RadioListTile<bool>(
-                          title: const Text(
-                            'Single Photo',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          subtitle: const Text('One passport photo'),
-                          value: false,
-                          groupValue: _isCollage,
-                          onChanged: (value) {
-                            setState(() {
-                              _isCollage = value!;
-                              if (!_isCollage) {
+                        Expanded(
+                          child: _buildPhotoTypeOption(
+                            title: 'Single Photo',
+                            subtitle: 'One passport photo',
+                            imagePath: 'assets/single_passport.png',
+                            isSelected: !_isCollage,
+                            onTap: () {
+                              setState(() {
+                                _isCollage = false;
                                 _collagePreviewBytes = null;
-                              }
-                            });
-                          },
-                          activeColor: kPrimaryGreen,
-                        ),
-                        RadioListTile<bool>(
-                          title: const Text(
-                            'Collage',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                              });
+                            },
                           ),
-                          subtitle: const Text('Multiple photos on one page'),
-                          value: true,
-                          groupValue: _isCollage,
-                          onChanged: (value) {
-                            setState(() {
-                              _isCollage = value!;
-                              if (_isCollage) {
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildPhotoTypeOption(
+                            title: 'Collage',
+                            subtitle: 'Multiple photos on one page',
+                            imagePath: 'assets/collage_passport.png',
+                            isSelected: _isCollage,
+                            onTap: () {
+                              setState(() {
+                                _isCollage = true;
                                 _updateCalculations();
-                              }
-                            });
-                          },
-                          activeColor: kPrimaryGreen,
+                              });
+                            },
+                          ),
                         ),
                       ],
                     ),
@@ -777,6 +764,111 @@ class _OutputSelectionScreenState extends State<OutputSelectionScreen> {
                       _isCollage ? 'Create Collage' : 'Create Photo',
                       style: const TextStyle(color: kCream, fontSize: 16),
                     ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoTypeOption({
+    required String title,
+    required String subtitle,
+    required String imagePath,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: isSelected ? kPrimaryGreen : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          color: isSelected
+              ? kPrimaryGreen.withOpacity(0.1)
+              : Colors.transparent,
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Image
+            Container(
+              height: 100,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  imagePath,
+                  height: 100,
+                  width: double.infinity,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 100,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.image,
+                        size: 40,
+                        color: Colors.grey.shade400,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Radio button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Radio<bool>(
+                  value: title == 'Single Photo' ? false : true,
+                  groupValue: _isCollage,
+                  onChanged: (value) => onTap(),
+                  activeColor: kPrimaryGreen,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: isSelected ? kPrimaryGreen : Colors.black87,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isSelected
+                              ? kPrimaryGreen.withOpacity(0.8)
+                              : Colors.grey.shade600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
               ],
