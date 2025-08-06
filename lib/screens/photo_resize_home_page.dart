@@ -6,11 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import '../widgets/celebration_popper.dart';
-
 import '../screens/crop_screen.dart';
-import '../screens/photo_type_selection_screen.dart';
-import '../screens/collage_dimension_screen.dart';
-
 import '../theme/app_colors.dart';
 
 class PhotoResizeHomePage extends StatefulWidget {
@@ -130,44 +126,6 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
         _freeCroppedImageBytes = null;
         _maskCroppedImageBytes = null;
         _finalImageBytes = null;
-      });
-      // Show the new screen for single/collage selection
-      final isCollage = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PhotoTypeSelectionScreen(
-            onSelection: (val) {
-              Navigator.pop(context, val);
-            },
-          ),
-        ),
-      );
-      bool collage = isCollage ?? false;
-      double? collageWidth;
-      double? collageHeight;
-      String? collageUnit;
-      if (collage) {
-        final result = await Navigator.push<Map<String, dynamic>>(
-          context,
-          MaterialPageRoute(
-            builder: (context) => CollageDimensionScreen(
-              onSubmit: (w, h, u) {
-                Navigator.pop(context, {'width': w, 'height': h, 'unit': u});
-              },
-            ),
-          ),
-        );
-        if (result != null) {
-          collageWidth = result['width'] as double;
-          collageHeight = result['height'] as double;
-          collageUnit = result['unit'] as String;
-        }
-      }
-      setState(() {
-        _isCollage = collage;
-        _collageWidth = collageWidth;
-        _collageHeight = collageHeight;
-        _collageUnit = collageUnit;
         _step = 1;
       });
       await _saveState();
@@ -202,6 +160,7 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
       height: heightPx,
       interpolation: img.Interpolation.linear,
     );
+
     if (_isCollage &&
         _collageWidth != null &&
         _collageHeight != null &&
@@ -215,9 +174,13 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
       }
       final collageWidthPx = (collageWidthCm / 2.54 * _dpi).round();
       final collageHeightPx = (collageHeightCm / 2.54 * _dpi).round();
-      // Calculate how many photos fit
-      final cols = (collageWidthPx / widthPx).floor();
-      final rows = (collageHeightPx / heightPx).floor();
+      // Calculate how many photos fit (using proper margin of 2.5mm = 0.25cm)
+      final marginCm = 0.25; // 2.5mm standard margin
+      final marginPx = (marginCm / 2.54 * _dpi).round();
+
+      final cols = ((collageWidthPx + marginPx) / (widthPx + marginPx)).floor();
+      final rows = ((collageHeightPx + marginPx) / (heightPx + marginPx))
+          .floor();
       final collage = img.Image(width: collageWidthPx, height: collageHeightPx);
       // Fill with white background (manual for compatibility)
       final white = img.ColorInt32.rgb(255, 255, 255);
@@ -226,7 +189,6 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
         170,
         170,
       ); // light gray for cut lines
-      final margin = 10; // px margin between images
       for (int y = 0; y < collageHeightPx; y++) {
         for (int x = 0; x < collageWidthPx; x++) {
           collage.setPixel(x, y, white);
@@ -234,8 +196,8 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
       }
       for (int row = 0; row < rows; row++) {
         for (int col = 0; col < cols; col++) {
-          final x = col * (widthPx + margin);
-          final y = row * (heightPx + margin);
+          final x = col * (widthPx + marginPx);
+          final y = row * (heightPx + marginPx);
           // Draw the image
           for (int iy = 0; iy < heightPx; iy++) {
             for (int ix = 0; ix < widthPx; ix++) {
@@ -251,7 +213,7 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
       }
       // Draw vertical markers
       for (int col = 1; col < cols; col++) {
-        int markerX = col * (widthPx + margin) - margin;
+        int markerX = (col * (widthPx + marginPx) - marginPx).round();
         for (int y = 0; y < collageHeightPx; y++) {
           if (markerX >= 0 && markerX < collageWidthPx) {
             collage.setPixel(markerX, y, marker);
@@ -260,7 +222,7 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
       }
       // Draw horizontal markers
       for (int row = 1; row < rows; row++) {
-        int markerY = row * (heightPx + margin) - margin;
+        int markerY = (row * (heightPx + marginPx) - marginPx).round();
         for (int x = 0; x < collageWidthPx; x++) {
           if (markerY >= 0 && markerY < collageHeightPx) {
             collage.setPixel(x, markerY, marker);
@@ -433,51 +395,29 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                               ),
                             ),
                           ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            const Text('DPI:'),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 80,
-                              child: TextFormField(
-                                initialValue: _dpi.toString(),
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'DPI',
-                                ),
-                                onChanged: (val) {
-                                  final dpi = int.tryParse(val);
-                                  if (dpi != null && dpi > 0) {
-                                    setState(() {
-                                      _dpi = dpi;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
                         const SizedBox(height: 16),
                         FilledButton(
                           onPressed: () async {
                             if (_originalImageBytes == null) return;
-                            final cropped = await Navigator.push<Uint8List?>(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => CropScreen(
-                                  imageBytes: _originalImageBytes!,
-                                  aspectRatio: null,
-                                  targetWidth: 0,
-                                  targetHeight: 0,
-                                  unit: 'cm',
-                                  dpi: _dpi,
-                                ),
-                              ),
-                            );
-                            if (cropped != null) {
+                            final result =
+                                await Navigator.push<Map<String, dynamic>?>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CropScreen(
+                                      imageBytes: _originalImageBytes!,
+                                      aspectRatio: null,
+                                      targetWidth: 0,
+                                      targetHeight: 0,
+                                      unit: 'cm',
+                                      dpi: _dpi,
+                                    ),
+                                  ),
+                                );
+                            if (result != null) {
+                              final croppedBytes =
+                                  result['croppedImage'] as Uint8List;
                               setState(() {
-                                _freeCroppedImageBytes = cropped;
+                                _freeCroppedImageBytes = croppedBytes;
                               });
                             }
                           },
@@ -491,6 +431,7 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                           ),
                         ),
                         const SizedBox(height: 16),
+
                         FilledButton(
                           onPressed: () {
                             setState(() {
@@ -658,22 +599,38 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                             final cropSource =
                                 _freeCroppedImageBytes ?? _originalImageBytes;
                             if (cropSource == null) return;
-                            final cropped = await Navigator.push<Uint8List?>(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => CropScreen(
-                                  imageBytes: cropSource,
-                                  aspectRatio: aspectRatio,
-                                  targetWidth: size[0],
-                                  targetHeight: size[1],
-                                  unit: unit,
-                                  dpi: _dpi,
-                                ),
-                              ),
-                            );
-                            if (cropped != null) {
+                            final result =
+                                await Navigator.push<Map<String, dynamic>?>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CropScreen(
+                                      imageBytes: cropSource,
+                                      aspectRatio: aspectRatio,
+                                      targetWidth: size[0],
+                                      targetHeight: size[1],
+                                      unit: unit,
+                                      dpi: _dpi,
+                                      selectedSize: _selectedSize,
+                                    ),
+                                  ),
+                                );
+                            if (result != null) {
+                              final croppedBytes =
+                                  result['croppedImage'] as Uint8List;
+                              final outputConfig =
+                                  result['outputConfig']
+                                      as Map<String, dynamic>;
+
                               setState(() {
-                                _maskCroppedImageBytes = cropped;
+                                _maskCroppedImageBytes = croppedBytes;
+                                _isCollage = outputConfig['isCollage'] as bool;
+                                if (_isCollage) {
+                                  _collageWidth =
+                                      outputConfig['width'] as double;
+                                  _collageHeight =
+                                      outputConfig['height'] as double;
+                                  _collageUnit = outputConfig['unit'] as String;
+                                }
                                 _step = 3;
                               });
                               await _saveState();
@@ -734,31 +691,6 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                             ),
                           ),
                         ],
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            const Text('DPI:'),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 80,
-                              child: TextFormField(
-                                initialValue: _dpi.toString(),
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'DPI',
-                                ),
-                                onChanged: (val) {
-                                  final dpi = int.tryParse(val);
-                                  if (dpi != null && dpi > 0) {
-                                    setState(() {
-                                      _dpi = dpi;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
                         const SizedBox(height: 24),
                         FilledButton(
                           onPressed: () async {
@@ -825,14 +757,6 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
                                   ),
                                 ),
                               ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                const Text('DPI:'),
-                                const SizedBox(width: 8),
-                                Text(_dpi.toString()),
-                              ],
-                            ),
                             const SizedBox(height: 24),
                             FilledButton.icon(
                               icon: const Icon(Icons.save_alt, color: kCream),

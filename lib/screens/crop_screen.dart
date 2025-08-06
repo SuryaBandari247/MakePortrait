@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import 'package:crop_your_image/crop_your_image.dart';
 import '../widgets/plus_control.dart';
+import 'output_selection_screen.dart';
 
 class CropScreen extends StatefulWidget {
   final Uint8List imageBytes;
@@ -33,7 +34,6 @@ class _CropScreenState extends State<CropScreen> {
   bool _cropping = false;
   bool _cropperReady = false;
   double? _aspectRatio;
-  Rect? _lastCropRect;
 
   final List<Map<String, dynamic>> _ratios = [
     {'label': 'Free', 'value': null},
@@ -119,21 +119,6 @@ class _CropScreenState extends State<CropScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: kPrimaryGreen),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Note: If you zoom in a lot or select a very small crop area, the output image quality may be low.',
-                      style: TextStyle(color: kPrimaryGreen),
-                    ),
-                  ),
-                ],
-              ),
-            ),
             if (isFixedAspect)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
@@ -156,10 +141,11 @@ class _CropScreenState extends State<CropScreen> {
                         ? '${w.toStringAsFixed(2)} x ${h.toStringAsFixed(2)} in'
                         : '${w.toStringAsFixed(2)} x ${h.toStringAsFixed(2)} cm';
                     return Text(
-                      'Crop the image to the required passport size. The crop mask is fixed to the target dimensions or aspect ratio ($dimStr).',
+                      'Crop to passport size: $dimStr',
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w500,
                         color: kPrimaryGreen,
+                        fontSize: 16,
                       ),
                       textAlign: TextAlign.center,
                     );
@@ -210,8 +196,8 @@ class _CropScreenState extends State<CropScreen> {
                 controller: _controller,
                 image: widget.imageBytes,
                 aspectRatio: _aspectRatio,
-                baseColor: kPrimaryGreen,
-                maskColor: kPrimaryGreen.withOpacity(0.4),
+                baseColor: kCream,
+                maskColor: Colors.black.withOpacity(0.3),
                 onStatusChanged: (status) {
                   if (status == CropStatus.ready && _aspectRatio == null) {
                     _controller.aspectRatio = null;
@@ -262,27 +248,41 @@ class _CropScreenState extends State<CropScreen> {
                     if (newTop + newHeight > maxBottom) {
                       newHeight = maxBottom - newTop;
                     }
-
-                    // Update the crop area to safe bounds
-                    final safeRect = Rect.fromLTWH(
-                      newLeft,
-                      newTop,
-                      newWidth,
-                      newHeight,
-                    );
-                    _lastCropRect = safeRect;
-                  } else {
-                    _lastCropRect = rect;
                   }
                 },
                 onCropped: (result) async {
                   Uint8List? bytes;
                   if (result is CropSuccess) {
                     bytes = result.croppedImage;
-                    // Optionally, you can show a warning if the crop area is too small
                   }
                   if (bytes != null && mounted) {
-                    Navigator.pop(context, bytes);
+                    // Only navigate to output selection if this is a passport crop (has valid target dimensions)
+                    if (widget.targetWidth > 0 && widget.targetHeight > 0) {
+                      final outputResult =
+                          await Navigator.push<Map<String, dynamic>?>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => OutputSelectionScreen(
+                                croppedImageBytes: bytes!,
+                                passportWidthCm: widget.targetWidth,
+                                passportHeightCm: widget.targetHeight,
+                                dpi: widget.dpi,
+                                selectedSize: widget.selectedSize ?? 'Unknown',
+                              ),
+                            ),
+                          );
+
+                      if (outputResult != null) {
+                        // Return both the cropped image and the output configuration
+                        Navigator.pop(context, {
+                          'croppedImage': bytes,
+                          'outputConfig': outputResult,
+                        });
+                      }
+                    } else {
+                      // For free crop, just return the image
+                      Navigator.pop(context, {'croppedImage': bytes});
+                    }
                   }
                   resetCropping();
                 },
@@ -345,7 +345,6 @@ class _CropScreenState extends State<CropScreen> {
 
                     rect = Rect.fromLTWH(left, top, cropWidth, cropHeight);
                   }
-                  _lastCropRect = rect;
                   return rect;
                 }),
                 overlayBuilder: (context, rect) {
@@ -355,7 +354,7 @@ class _CropScreenState extends State<CropScreen> {
                 radius: 20,
                 willUpdateScale: (newScale) => newScale < 5,
                 cornerDotBuilder: (size, edgeAlignment) =>
-                    PlusControl(backgroundColor: kPrimaryGreen),
+                    PlusControl(backgroundColor: kCream),
                 clipBehavior: Clip.none,
                 interactive: true,
               ),

@@ -5,6 +5,17 @@ class CelebrationPopper extends StatefulWidget {
   final VoidCallback onDone;
   const CelebrationPopper({super.key, required this.onDone});
 
+  static Future<void> show(BuildContext context) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (BuildContext context) {
+        return CelebrationPopper(onDone: () => Navigator.of(context).pop());
+      },
+    );
+  }
+
   @override
   State<CelebrationPopper> createState() => _CelebrationPopperState();
 }
