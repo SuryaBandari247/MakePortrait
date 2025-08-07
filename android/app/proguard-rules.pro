@@ -1,5 +1,5 @@
 # Keep MainActivity class
--keep class com.parasmile.makeportrait.MainActivity { *; }
+-keep class com.Parasmile.makeportrait.MainActivity { *; }
 
 # Keep Flutter classes
 -keep class io.flutter.** { *; }

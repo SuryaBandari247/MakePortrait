@@ -1,4 +1,4 @@
-package com.parasmile.makeportrait
+package com.Parasmile.makeportrait
 
 import io.flutter.embedding.android.FlutterActivity
 
