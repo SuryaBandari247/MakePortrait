@@ -28,12 +28,14 @@ class CropScreen extends StatefulWidget {
   State<CropScreen> createState() => _CropScreenState();
 }
 
-class _CropScreenState extends State<CropScreen> {
+class _CropScreenState extends State<CropScreen> with TickerProviderStateMixin {
   late CropController _controller;
   late Key _cropperKey;
   bool _cropping = false;
   bool _cropperReady = false;
   double? _aspectRatio;
+  late AnimationController _zoomAnimationController;
+  late Animation<double> _zoomAnimation;
 
   final List<Map<String, dynamic>> _ratios = [
     {'label': 'Free', 'value': null},
@@ -57,7 +59,31 @@ class _CropScreenState extends State<CropScreen> {
     } else {
       _aspectRatio = null;
     }
-    // Optionally, you can show a warning using another mechanism if needed.
+
+    // Initialize zoom animation
+    _zoomAnimationController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+    _zoomAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
+      CurvedAnimation(
+        parent: _zoomAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    // Start the zoom animation loop after a delay
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) {
+        _zoomAnimationController.repeat(reverse: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _zoomAnimationController.dispose();
+    super.dispose();
   }
 
   void _onAspectRatioSelected(int i) {
@@ -70,6 +96,15 @@ class _CropScreenState extends State<CropScreen> {
       }
       _controller = CropController();
       _cropperKey = UniqueKey();
+      _cropperReady = false; // Reset cropper ready state
+
+      // Restart zoom animation when aspect ratio changes
+      _zoomAnimationController.reset();
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _zoomAnimationController.repeat(reverse: true);
+        }
+      });
     });
   }
 
@@ -190,173 +225,226 @@ class _CropScreenState extends State<CropScreen> {
                   ),
                 ),
               ),
-            Expanded(
-              child: Crop(
-                key: _cropperKey,
-                controller: _controller,
-                image: widget.imageBytes,
-                aspectRatio: _aspectRatio,
-                baseColor: kCream,
-                maskColor: Colors.black.withOpacity(0.3),
-                onStatusChanged: (status) {
-                  if (status == CropStatus.ready && _aspectRatio == null) {
-                    _controller.aspectRatio = null;
-                  }
-                  if (status == CropStatus.ready && !_cropperReady) {
-                    setState(() => _cropperReady = true);
-                  }
-                },
-                // Prevent crop area from going out of bounds
-                onMoved: (rect, imageRect) {
-                  // Account for corner controls size to prevent them from going off screen
-                  const double cornerControlSize = 28.0;
-                  const double safetyMargin = 8.0;
-                  const double totalMargin = cornerControlSize + safetyMargin;
-
-                  // Get viewport bounds
-                  final RenderBox renderBox =
-                      context.findRenderObject() as RenderBox;
-                  final Size viewportSize = renderBox.size;
-
-                  // Calculate safe bounds
-                  final double minLeft = totalMargin;
-                  final double minTop = totalMargin;
-                  final double maxRight = viewportSize.width - totalMargin;
-                  final double maxBottom = viewportSize.height - totalMargin;
-
-                  // Check if any corner would be outside safe bounds
-                  if (rect.left < minLeft ||
-                      rect.top < minTop ||
-                      rect.right > maxRight ||
-                      rect.bottom > maxBottom) {
-                    // Clamp the rect to safe bounds
-                    double newLeft = rect.left.clamp(
-                      minLeft,
-                      maxRight - rect.width,
-                    );
-                    double newTop = rect.top.clamp(
-                      minTop,
-                      maxBottom - rect.height,
-                    );
-                    double newWidth = rect.width;
-                    double newHeight = rect.height;
-
-                    // Adjust width/height if needed
-                    if (newLeft + newWidth > maxRight) {
-                      newWidth = maxRight - newLeft;
-                    }
-                    if (newTop + newHeight > maxBottom) {
-                      newHeight = maxBottom - newTop;
-                    }
-                  }
-                },
-                onCropped: (result) async {
-                  Uint8List? bytes;
-                  if (result is CropSuccess) {
-                    bytes = result.croppedImage;
-                  }
-                  if (bytes != null && mounted) {
-                    // Only navigate to output selection if this is a passport crop (has valid target dimensions)
-                    if (widget.targetWidth > 0 && widget.targetHeight > 0) {
-                      final outputResult =
-                          await Navigator.push<Map<String, dynamic>?>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => OutputSelectionScreen(
-                                croppedImageBytes: bytes!,
-                                passportWidthCm: widget.targetWidth,
-                                passportHeightCm: widget.targetHeight,
-                                dpi: widget.dpi,
-                                selectedSize: widget.selectedSize ?? 'Unknown',
-                              ),
+            // Reset button section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Animated zoom tutorial hint
+                  AnimatedBuilder(
+                    animation: _zoomAnimation,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scale: _zoomAnimation.value,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: kPrimaryGreen.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: kPrimaryGreen.withValues(alpha: 0.3),
+                              width: 1,
                             ),
-                          );
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.pinch,
+                                color: kPrimaryGreen.withValues(alpha: 0.7),
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Pinch to zoom',
+                                style: TextStyle(
+                                  color: kPrimaryGreen.withValues(alpha: 0.7),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  // Reset button
+                  OutlinedButton.icon(
+                    onPressed: (_cropping || !_cropperReady)
+                        ? null
+                        : () {
+                            // Reset the crop controller and recreate the cropper
+                            setState(() {
+                              _controller = CropController();
+                              _cropperKey = UniqueKey();
+                              _cropperReady = false;
+                            });
 
-                      if (outputResult != null) {
-                        // Return both the cropped image and the output configuration
-                        Navigator.pop(context, {
-                          'croppedImage': bytes,
-                          'outputConfig': outputResult,
-                        });
-                      }
-                    } else {
-                      // For free crop, just return the image
-                      Navigator.pop(context, {'croppedImage': bytes});
+                            // Restart zoom animation after reset
+                            _zoomAnimationController.reset();
+                            Future.delayed(
+                              const Duration(milliseconds: 500),
+                              () {
+                                if (mounted) {
+                                  _zoomAnimationController.repeat(
+                                    reverse: true,
+                                  );
+                                }
+                              },
+                            );
+                          },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: kPrimaryGreen,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text(
+                      'Reset',
+                      style: TextStyle(color: kPrimaryGreen, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.all(
+                  30.0,
+                ), // Margin to keep controls in bounds
+                child: Crop(
+                  key: _cropperKey,
+                  controller: _controller,
+                  image: widget.imageBytes,
+                  aspectRatio: _aspectRatio,
+                  baseColor: kCream,
+                  maskColor: Colors.black.withValues(alpha: 0.3),
+                  onStatusChanged: (status) {
+                    if (status == CropStatus.ready && !_cropperReady) {
+                      setState(() => _cropperReady = true);
                     }
-                  }
-                  resetCropping();
-                },
-                initialRectBuilder: InitialRectBuilder.withBuilder((
-                  viewportRect,
-                  imageRect,
-                ) {
-                  Rect rect;
-                  // Account for corner controls (plus signs) - they are 28x28 pixels
-                  const double cornerControlSize = 28.0;
-                  const double safetyMargin = 8.0;
-                  const double totalMargin = cornerControlSize + safetyMargin;
+                  },
+                  onCropped: (result) async {
+                    Uint8List? bytes;
+                    if (result is CropSuccess) {
+                      bytes = result.croppedImage;
+                    }
+                    if (bytes != null && mounted) {
+                      // Only navigate to output selection if this is a passport crop (has valid target dimensions)
+                      if (widget.targetWidth > 0 && widget.targetHeight > 0) {
+                        final outputResult =
+                            await Navigator.push<Map<String, dynamic>?>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => OutputSelectionScreen(
+                                  croppedImageBytes: bytes!,
+                                  passportWidthCm: widget.targetWidth,
+                                  passportHeightCm: widget.targetHeight,
+                                  dpi: widget.dpi,
+                                  selectedSize:
+                                      widget.selectedSize ?? 'Unknown',
+                                ),
+                              ),
+                            );
 
-                  if (_aspectRatio == null) {
-                    // For free aspect ratio, use a more conservative scale and ensure padding
-                    const scale = 0.7;
-                    final w = (imageRect.width * scale).clamp(
-                      100.0,
-                      viewportRect.width - totalMargin * 2,
-                    );
-                    final h = (imageRect.height * scale).clamp(
-                      100.0,
-                      viewportRect.height - totalMargin * 2,
-                    );
-                    final l = viewportRect.left + (viewportRect.width - w) / 2;
-                    final t = viewportRect.top + (viewportRect.height - h) / 2;
-                    rect = Rect.fromLTWH(l, t, w, h);
-                  } else {
-                    // For fixed aspect ratio, ensure corner controls stay within bounds
-                    final double padX = totalMargin;
-                    final double padY = totalMargin;
-                    final double maxWidth = (viewportRect.width - padX * 2)
-                        .clamp(100.0, double.infinity);
-                    final double maxHeight = (viewportRect.height - padY * 2)
-                        .clamp(100.0, double.infinity);
-
-                    double cropWidth = maxWidth;
-                    double cropHeight = maxHeight;
-
-                    if (_aspectRatio! > 0) {
-                      if (maxWidth / maxHeight > _aspectRatio!) {
-                        cropHeight = maxHeight;
-                        cropWidth = cropHeight * _aspectRatio!;
+                        if (outputResult != null) {
+                          // Return both the cropped image and the output configuration
+                          Navigator.pop(context, {
+                            'croppedImage': bytes,
+                            'outputConfig': outputResult,
+                          });
+                        }
                       } else {
-                        cropWidth = maxWidth;
-                        cropHeight = cropWidth / _aspectRatio!;
+                        // For free crop, just return the image
+                        Navigator.pop(context, {'croppedImage': bytes});
                       }
                     }
+                    resetCropping();
+                  },
+                  initialRectBuilder: InitialRectBuilder.withBuilder((
+                    viewportRect,
+                    imageRect,
+                  ) {
+                    Rect rect;
+                    // Account for corner controls (plus signs) - they are 28x28 pixels
+                    const double cornerControlSize = 28.0;
+                    const double safetyMargin = 20.0; // Large safety margin
+                    const double totalMargin = cornerControlSize + safetyMargin;
 
-                    // Ensure minimum size
-                    cropWidth = cropWidth.clamp(100.0, maxWidth);
-                    cropHeight = cropHeight.clamp(100.0, maxHeight);
+                    if (_aspectRatio == null) {
+                      // For free aspect ratio, use a very conservative scale and ensure large padding
+                      const scale =
+                          0.4; // Very conservative scale to keep controls well within bounds
+                      final w = (imageRect.width * scale).clamp(
+                        100.0,
+                        viewportRect.width -
+                            totalMargin * 3, // Triple margin for extra safety
+                      );
+                      final h = (imageRect.height * scale).clamp(
+                        100.0,
+                        viewportRect.height -
+                            totalMargin * 3, // Triple margin for extra safety
+                      );
+                      final l =
+                          viewportRect.left + (viewportRect.width - w) / 2;
+                      final t =
+                          viewportRect.top + (viewportRect.height - h) / 2;
+                      rect = Rect.fromLTWH(l, t, w, h);
+                    } else {
+                      // For fixed aspect ratio, ensure corner controls stay within bounds
+                      final double padX = totalMargin;
+                      final double padY = totalMargin;
+                      final double maxWidth = (viewportRect.width - padX * 2)
+                          .clamp(100.0, double.infinity);
+                      final double maxHeight = (viewportRect.height - padY * 2)
+                          .clamp(100.0, double.infinity);
 
-                    final double left =
-                        viewportRect.left +
-                        (viewportRect.width - cropWidth) / 2;
-                    final double top =
-                        viewportRect.top +
-                        (viewportRect.height - cropHeight) / 2;
+                      double cropWidth = maxWidth;
+                      double cropHeight = maxHeight;
 
-                    rect = Rect.fromLTWH(left, top, cropWidth, cropHeight);
-                  }
-                  return rect;
-                }),
-                overlayBuilder: (context, rect) {
-                  return const SizedBox.shrink();
-                },
-                progressIndicator: const CircularProgressIndicator(),
-                radius: 20,
-                willUpdateScale: (newScale) => newScale < 5,
-                cornerDotBuilder: (size, edgeAlignment) =>
-                    PlusControl(backgroundColor: kCream),
-                clipBehavior: Clip.none,
-                interactive: true,
+                      if (_aspectRatio! > 0) {
+                        if (maxWidth / maxHeight > _aspectRatio!) {
+                          cropHeight = maxHeight;
+                          cropWidth = cropHeight * _aspectRatio!;
+                        } else {
+                          cropWidth = maxWidth;
+                          cropHeight = cropWidth / _aspectRatio!;
+                        }
+                      }
+
+                      // Ensure minimum size
+                      cropWidth = cropWidth.clamp(100.0, maxWidth);
+                      cropHeight = cropHeight.clamp(100.0, maxHeight);
+
+                      final double left =
+                          viewportRect.left +
+                          (viewportRect.width - cropWidth) / 2;
+                      final double top =
+                          viewportRect.top +
+                          (viewportRect.height - cropHeight) / 2;
+
+                      rect = Rect.fromLTWH(left, top, cropWidth, cropHeight);
+                    }
+                    return rect;
+                  }),
+                  overlayBuilder: (context, rect) {
+                    return const SizedBox.shrink();
+                  },
+                  progressIndicator: const CircularProgressIndicator(),
+                  radius: 20,
+                  willUpdateScale: (newScale) => newScale < 5,
+                  cornerDotBuilder: (size, edgeAlignment) =>
+                      PlusControl(backgroundColor: kCream),
+                  clipBehavior: Clip.hardEdge, // Prevent overflow
+                  interactive: true,
+                ),
               ),
             ),
             Padding(
@@ -364,37 +452,55 @@ class _CropScreenState extends State<CropScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  OutlinedButton(
-                    onPressed: _cropping ? null : () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: kPrimaryGreen,
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: kPrimaryGreen),
+                  Expanded(
+                    flex: 2,
+                    child: OutlinedButton(
+                      onPressed: _cropping
+                          ? null
+                          : () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: kPrimaryGreen,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: kPrimaryGreen),
+                      ),
                     ),
                   ),
-                  FilledButton(
-                    onPressed: (_cropping || !_cropperReady)
-                        ? null
-                        : () {
-                            setState(() => _cropping = true);
-                            _controller.crop();
-                          },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: kPrimaryGreen,
-                      foregroundColor: kCream,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 3,
+                    child: FilledButton(
+                      onPressed: (_cropping || !_cropperReady)
+                          ? null
+                          : () {
+                              setState(() => _cropping = true);
+                              _controller.crop();
+                            },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: kPrimaryGreen,
+                        foregroundColor: kCream,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: _cropping
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  kCream,
+                                ),
+                              ),
+                            )
+                          : const Text(
+                              'Apply Crop',
+                              style: TextStyle(color: kCream),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                     ),
-                    child: _cropping
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text(
-                            'Apply Crop',
-                            style: TextStyle(color: kCream),
-                          ),
                   ),
                 ],
               ),
