@@ -95,18 +95,19 @@ class _PhotoResizeHomePageState extends State<PhotoResizeHomePage> {
   Uint8List? _freeCroppedImageBytes;
   Uint8List? _maskCroppedImageBytes;
   Uint8List? _finalImageBytes;
-  String _selectedSize = 'India (2x2 inch)';
+  String _selectedSize = 'EU (35x45 mm)'; // Default to Europe
   final Map<String, List<double>> _passportSizes = {
-    'India (2x2 inch)': [5.08, 5.08],
-    'US (2x2 inch)': [5.08, 5.08],
-    'UK (35x45 mm)': [3.5, 4.5],
-    'EU (35x45 mm)': [3.5, 4.5],
-    'China (33x48 mm)': [3.3, 4.8],
-    'Canada (50x70 mm)': [5.0, 7.0],
+    // Sorted alphabetically, Custom at the end
     'Australia (35x45 mm)': [3.5, 4.5],
-    'Singapore (35x45 mm)': [3.5, 4.5],
+    'Canada (50x70 mm)': [5.0, 7.0],
+    'China (33x48 mm)': [3.3, 4.8],
+    'EU (35x45 mm)': [3.5, 4.5],
+    'India (2x2 inch)': [5.08, 5.08],
     'Malaysia (35x50 mm)': [3.5, 5.0],
-    'Custom': [3.5, 4.5],
+    'Singapore (35x45 mm)': [3.5, 4.5],
+    'UK (35x45 mm)': [3.5, 4.5],
+    'US (2x2 inch)': [5.08, 5.08],
+    'Custom': [3.5, 4.5], // Custom at the end
   };
   String _customUnit = 'cm';
   double _customWidth = 3.5;
