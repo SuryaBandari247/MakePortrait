@@ -1,0 +1,80 @@
+workflows:
+  ios-workflow:
+    name: iOS Workflow
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    integrations:
+      app_store_connect: codemagic
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.Parasmile.makeportrait"
+        XCODE_WORKSPACE: "Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+    scripts:
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Flutter build ipa
+        script: |
+          flutter build ipa --release \
+            --build-name=1.0.0 \
+            --build-number=$(($(app-store-connect get-latest-app-store-build-number "$APP_ID") + 1)) \
+            --export-options-plist=/tmp/ExportOptions.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      # Uncomment the following line to automatically publish to App Store Connect
+      # app_store_connect:
+      #   auth: integration
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: false
+          
+  android-workflow:
+    name: Android Workflow
+    max_build_duration: 120
+    instance_type: linux_x2
+    environment:
+      android_signing:
+        - keystore_reference
+      flutter: stable
+      java: 11
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Build AAB with Flutter
+        script: |
+          flutter build appbundle --release \
+            --build-name=1.0.0 \
+            --build-number=$BUILD_NUMBER
+    artifacts:
+      - build/app/outputs/**/*.aab
+      - build/app/outputs/**/*.apk
+      - build/app/outputs/**/mapping.txt
+      - flutter_drive.log
+    publishing:
+      # Uncomment to publish to Google Play
+      # google_play:
+      #   credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      #   track: internal
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: false

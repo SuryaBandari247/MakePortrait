@@ -16,6 +16,7 @@ class ResultScreen extends StatefulWidget {
   final double? collageWidth;
   final double? collageHeight;
   final double marginMm; // Margin in millimeters
+  final int? targetPhotoCount; // Target number of photos to place
 
   const ResultScreen({
     required this.croppedImageBytes,
@@ -27,6 +28,7 @@ class ResultScreen extends StatefulWidget {
     this.collageWidth,
     this.collageHeight,
     this.marginMm = 2.5, // Default to 2.5mm
+    this.targetPhotoCount, // Default will fill the grid
     super.key,
   });
 
@@ -99,41 +101,64 @@ class _ResultScreenState extends State<ResultScreen> {
       throw Exception('Failed to decode image');
     }
 
-    // Calculate dimensions
-    final passportWidthPx = (widget.passportWidthCm / 2.54 * widget.dpi)
-        .round();
-    final passportHeightPx = (widget.passportHeightCm / 2.54 * widget.dpi)
-        .round();
-    final collageWidthPx = (widget.collageWidth! / 2.54 * widget.dpi).round();
-    final collageHeightPx = (widget.collageHeight! / 2.54 * widget.dpi).round();
+    // 🔥 CRITICAL FIX: Use SAME grid calculation as preview!
+    // Don't use A4-optimized dimensions - calculate grid directly from user's photo count
 
     // Use the margin passed from OutputSelectionScreen (in mm, convert to cm)
     final marginCm = widget.marginMm / 10.0; // Convert mm to cm
-    final marginPx = (marginCm / 2.54 * widget.dpi).round();
 
-    // Use floating point calculations like in the preview to avoid rounding differences
-    final passportWidthPxFloat = (widget.passportWidthCm / 2.54 * widget.dpi);
-    final passportHeightPxFloat = (widget.passportHeightCm / 2.54 * widget.dpi);
-    final collageWidthPxFloat = (widget.collageWidth! / 2.54 * widget.dpi);
-    final collageHeightPxFloat = (widget.collageHeight! / 2.54 * widget.dpi);
-    final marginPxFloat =
-        (marginCm / 2.54 * widget.dpi); // Same as preview calculation
+    final passportWidthPx = (widget.passportWidthCm / 2.54 * widget.dpi);
+    final passportHeightPx = (widget.passportHeightCm / 2.54 * widget.dpi);
+    final marginPx = (marginCm / 2.54 * widget.dpi);
 
-    // Calculate grid using floating point (same as preview)
-    final cols =
-        ((collageWidthPxFloat + marginPxFloat) /
-                (passportWidthPxFloat + marginPxFloat))
-            .floor();
-    final rows =
-        ((collageHeightPxFloat + marginPxFloat) /
-                (passportHeightPxFloat + marginPxFloat))
-            .floor();
+    // Use IDENTICAL logic as _generateCollagePreview to get the EXACT same grid
+    int bestCols = 1, bestRows = 1;
+    double bestRatio = double.infinity;
+    final targetPhotoCount = widget.targetPhotoCount ?? 6;
+
+    for (int testCols = 1; testCols <= targetPhotoCount; testCols++) {
+      int testRows = (targetPhotoCount / testCols).ceil();
+      int totalSlots = testCols * testRows;
+
+      if (totalSlots >= targetPhotoCount) {
+        double width = testCols * passportWidthPx + (testCols - 1) * marginPx;
+        double height = testRows * passportHeightPx + (testRows - 1) * marginPx;
+        double ratio = width / height;
+        double targetRatio = 1.414; // A4 aspect ratio
+        double ratioDiff = (ratio - 1 / targetRatio).abs();
+
+        double priority = ratioDiff;
+        if (totalSlots == targetPhotoCount) {
+          priority -= 1000; // Huge preference for exact match
+        }
+
+        if (priority < bestRatio) {
+          bestRatio = priority;
+          bestCols = testCols;
+          bestRows = testRows;
+        }
+      }
+    }
+
+    // NOW we have the EXACT same grid that was chosen in preview
+    final cols = bestCols;
+    final rows = bestRows;
+
+    debugPrint(
+      '🔥 FINAL: Using EXACT chosen grid ${cols}x${rows} for ${targetPhotoCount} photos',
+    );
+
+    // Calculate actual collage dimensions from this grid
+    final collageWidthPx = (cols * passportWidthPx + (cols - 1) * marginPx)
+        .round();
+    final collageHeightPx = (rows * passportHeightPx + (rows - 1) * marginPx)
+        .round();
 
     // Resize passport photo
     img.Image resizedPhoto = img.copyResize(
       originalImage,
-      width: passportWidthPx,
-      height: passportHeightPx,
+      width: passportWidthPx.round(),
+      height: passportHeightPx.round(),
     );
 
     // Create collage
@@ -152,15 +177,35 @@ class _ResultScreenState extends State<ResultScreen> {
       }
     }
 
-    // Place photos
-    for (int row = 0; row < rows; row++) {
-      for (int col = 0; col < cols; col++) {
+    // Place photos - Honor user's target photo count
+    int photosToPlace = widget.targetPhotoCount ?? (rows * cols);
+    int photosPlaced = 0;
+
+    debugPrint(
+      'FINAL RESULT: Will place $photosToPlace photos (user wanted ${widget.targetPhotoCount})',
+    );
+    debugPrint('🔥 FINAL: Grid size is ${cols}x${rows} = ${cols * rows} slots');
+    debugPrint(
+      '🔥 FINAL: Collage size is ${collageWidthPx}x${collageHeightPx} pixels',
+    );
+    debugPrint(
+      '🔥 FINAL: Photo size is ${passportWidthPx.round()}x${passportHeightPx.round()} pixels',
+    );
+
+    for (int row = 0; row < rows && photosPlaced < photosToPlace; row++) {
+      debugPrint('🔥 FINAL: Starting row $row (max: ${rows - 1})');
+      for (int col = 0; col < cols && photosPlaced < photosToPlace; col++) {
+        debugPrint('🔥 FINAL: Processing column $col (max: ${cols - 1})');
         final x = (col * (passportWidthPx + marginPx)).round();
         final y = (row * (passportHeightPx + marginPx)).round();
 
+        debugPrint(
+          '🔥 FINAL: Placing photo ${photosPlaced + 1} at grid [${col}, ${row}] => position (${x}, ${y})',
+        );
+
         // Draw the image
-        for (int iy = 0; iy < passportHeightPx; iy++) {
-          for (int ix = 0; ix < passportWidthPx; ix++) {
+        for (int iy = 0; iy < passportHeightPx.round(); iy++) {
+          for (int ix = 0; ix < passportWidthPx.round(); ix++) {
             if (ix < resizedPhoto.width && iy < resizedPhoto.height) {
               final px = resizedPhoto.getPixel(ix, iy);
               int cx = x + ix;
@@ -171,8 +216,12 @@ class _ResultScreenState extends State<ResultScreen> {
             }
           }
         }
+        photosPlaced++;
+        debugPrint('🔥 FINAL: Photo ${photosPlaced} placed successfully');
       }
     }
+
+    debugPrint('FINAL RESULT: Actually placed $photosPlaced photos');
 
     // Draw vertical markers
     for (int col = 1; col < cols; col++) {

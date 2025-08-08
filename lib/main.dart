@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'screens/photo_resize_home_page.dart';
 import 'theme/app_colors.dart';
 import 'screens/splash_screen_launcher.dart';
 

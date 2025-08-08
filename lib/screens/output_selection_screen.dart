@@ -2,6 +2,16 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import '../theme/app_colors.dart';
+import '../utils/collage_debug_tester.dart';
+import '../utils/specific_collage_test.dart';
+import '../utils/collage_calculation_fixer.dart';
+import '../utils/comprehensive_user_input_tester.dart';
+import '../utils/runtime_user_input_validator.dart';
+import '../utils/interactive_test_runner.dart';
+import '../utils/standalone_test_runner.dart';
+import '../utils/canada_6_photo_diagnostic.dart';
+import '../utils/complete_validation_runner.dart';
+import '../utils/final_verification_test.dart';
 import 'result_screen.dart';
 
 class OutputSelectionScreen extends StatefulWidget {
@@ -58,6 +68,40 @@ class _OutputSelectionScreenState extends State<OutputSelectionScreen> {
     _heightController = TextEditingController(text: _customHeight.toString());
     _customMarginController = TextEditingController(text: _marginMm.toString());
 
+    // 🔥 FOCUSED DIAGNOSTIC FOR CANADA 6-PHOTO BUG
+    debugPrint('🔥 RUNNING CANADA 6-PHOTO DIAGNOSTIC');
+    Canada6PhotoDiagnostic.diagnoseCanada6PhotoIssue();
+    Canada6PhotoDiagnostic.testFix();
+
+    // 🧪 RUN COMPREHENSIVE USER INPUT TESTS
+    debugPrint('🧪 STARTING COMPREHENSIVE USER INPUT VALIDATION TESTS');
+    ComprehensiveUserInputTester.runAllTests();
+
+    // 🎯 RUN INTERACTIVE TESTS FOR CURRENT SCENARIO
+    debugPrint('🎯 RUNNING INTERACTIVE TESTS FOR: ${widget.selectedSize}');
+    InteractiveTestRunner.runFullTestSuite();
+
+    // 🚀 RUN COMPLETE STANDALONE TEST SUITE
+    debugPrint('🚀 EXECUTING COMPLETE STANDALONE TEST SUITE');
+    StandaloneTestRunner.runCompleteTestSuite(); // Run debug test to identify calculation differences
+    CollageDebugTester.testAllCombinations();
+
+    // Run specific Canada scenario test
+    SpecificCollageTest.testCanadaScenario();
+
+    // Run detailed debug for Canada issue
+    CollageCalculationFixer.debugCanadaIssue();
+
+    // 🚀 RUN ALL COMPREHENSIVE TESTS FOR VALIDATION
+    debugPrint('\n🚀 RUNNING COMPLETE VALIDATION TEST SUITE');
+    CompleteValidationRunner.runAllValidationTests();
+    CompleteValidationRunner.runAllCountryTests();
+
+    // 🎯 RUN FINAL VERIFICATION FOR CRITICAL SCENARIO
+    debugPrint('\n🎯 RUNNING FINAL VERIFICATION TEST');
+    FinalVerificationTest.runCanada6PhotoVerification();
+    FinalVerificationTest.runAllCountriesQuickTest();
+
     _updateCalculations();
   }
 
@@ -93,20 +137,32 @@ class _OutputSelectionScreenState extends State<OutputSelectionScreen> {
     final passportHeightPx = (widget.passportHeightCm / 2.54 * widget.dpi);
     final marginPx = (_marginMm / 10.0 / 2.54 * widget.dpi);
 
+    // CRITICAL FIX: Honor user's photo count requirement
+    // Find grid that fits EXACTLY the requested photos or more
     int bestCols = 1, bestRows = 1;
     double bestRatio = double.infinity;
 
+    // Try all possible grids that can fit AT LEAST the target photos
     for (int cols = 1; cols <= _targetPhotoCount; cols++) {
       int rows = (_targetPhotoCount / cols).ceil();
-      if (cols * rows >= _targetPhotoCount) {
+      int totalSlots = cols * rows;
+
+      // Only consider grids that fit the target photos
+      if (totalSlots >= _targetPhotoCount) {
         double width = cols * passportWidthPx + (cols - 1) * marginPx;
         double height = rows * passportHeightPx + (rows - 1) * marginPx;
         double ratio = width / height;
         double targetRatio = 1.414; // A4 aspect ratio
         double ratioDiff = (ratio - 1 / targetRatio).abs();
 
-        if (ratioDiff < bestRatio) {
-          bestRatio = ratioDiff;
+        // Prefer exact matches, then closest to A4 ratio
+        double priority = ratioDiff;
+        if (totalSlots == _targetPhotoCount) {
+          priority -= 1000; // Huge preference for exact match
+        }
+
+        if (priority < bestRatio) {
+          bestRatio = priority;
           bestCols = cols;
           bestRows = rows;
         }
@@ -120,7 +176,28 @@ class _OutputSelectionScreenState extends State<OutputSelectionScreen> {
 
     _calculatedWidth = finalWidthPx * 2.54 / widget.dpi;
     _calculatedHeight = finalHeightPx * 2.54 / widget.dpi;
-    _calculatedPhotos = bestCols * bestRows;
+
+    // ALWAYS use the user's target photo count, not grid capacity
+    _calculatedPhotos = _targetPhotoCount;
+
+    // 🧪 REAL-TIME VALIDATION: Photo count scenario
+    RuntimeUserInputValidator.validateCurrentState(
+      scenario: 'Photo Count Mode - ${widget.selectedSize}',
+      userPhotos: _targetPhotoCount,
+      calculatedPhotos: _calculatedPhotos,
+      userWidth: 0, // Not applicable in photo count mode
+      userHeight: 0, // Not applicable in photo count mode
+      actualWidth: _calculatedWidth,
+      actualHeight: _calculatedHeight,
+      userMargin: _marginMm,
+    );
+
+    // Debug info
+    debugPrint('USER WANTS: $_targetPhotoCount photos');
+    debugPrint(
+      'GRID CHOSEN: ${bestCols}x${bestRows} = ${bestCols * bestRows} slots',
+    );
+    debugPrint('WILL PLACE: $_calculatedPhotos photos (user request honored)');
   }
 
   void _calculatePhotosFromDimensions() {
@@ -137,38 +214,145 @@ class _OutputSelectionScreenState extends State<OutputSelectionScreen> {
     final passportHeightPx = (widget.passportHeightCm / 2.54 * widget.dpi);
     final marginPx = (_marginMm / 10.0 / 2.54 * widget.dpi);
 
-    final cols = ((widthPx + marginPx) / (passportWidthPx + marginPx)).floor();
-    final rows = ((heightPx + marginPx) / (passportHeightPx + marginPx))
-        .floor();
+    // Use CORRECT formula with floating-point tolerance for precision issues:
+    // If width = cols * photoWidth + (cols-1) * margin
+    // Then: width = cols * (photoWidth + margin) - margin
+    // So: cols = (width + margin) / (photoWidth + margin)
+    final colsExact = (widthPx + marginPx) / (passportWidthPx + marginPx);
+    final rowsExact = (heightPx + marginPx) / (passportHeightPx + marginPx);
+
+    // Add small tolerance (0.01) to handle floating-point precision issues
+    final cols = (colsExact + 0.01).floor();
+    final rows = (rowsExact + 0.01).floor();
+
+    // 🔍 DEBUG: Let's see exactly what's being calculated
+    debugPrint('🔍 DIMENSION CALCULATION DEBUG:');
+    debugPrint(
+      '   Paper: ${widthCm.toStringAsFixed(1)}x${heightCm.toStringAsFixed(1)}cm',
+    );
+    debugPrint(
+      '   Photo: ${widget.passportWidthCm}x${widget.passportHeightCm}cm',
+    );
+    debugPrint(
+      '   Margin: ${_marginMm}mm = ${(_marginMm / 10.0).toStringAsFixed(2)}cm',
+    );
+    debugPrint(
+      '   Paper pixels: ${widthPx.toStringAsFixed(0)}x${heightPx.toStringAsFixed(0)}px',
+    );
+    debugPrint(
+      '   Photo pixels: ${passportWidthPx.toStringAsFixed(0)}x${passportHeightPx.toStringAsFixed(0)}px',
+    );
+    debugPrint('   Margin pixels: ${marginPx.toStringAsFixed(0)}px');
+    debugPrint(
+      '   Cols calc: (${widthPx.toStringAsFixed(0)} + ${marginPx.toStringAsFixed(0)}) / (${passportWidthPx.toStringAsFixed(0)} + ${marginPx.toStringAsFixed(0)}) = ${colsExact.toStringAsFixed(4)} → $cols',
+    );
+    debugPrint(
+      '   Rows calc: (${heightPx.toStringAsFixed(0)} + ${marginPx.toStringAsFixed(0)}) / (${passportHeightPx.toStringAsFixed(0)} + ${marginPx.toStringAsFixed(0)}) = ${rowsExact.toStringAsFixed(4)} → $rows',
+    );
+    debugPrint('   Grid: ${cols}x${rows} = ${cols * rows} photos');
 
     _calculatedPhotos = cols * rows;
     _calculatedWidth = widthCm;
     _calculatedHeight = heightCm;
+
+    // 🧪 REAL-TIME VALIDATION: Dimension scenario
+    RuntimeUserInputValidator.validateCurrentState(
+      scenario: 'Dimension Mode - ${widget.selectedSize}',
+      userPhotos: 0, // Not applicable in dimension mode
+      calculatedPhotos: _calculatedPhotos,
+      userWidth: _customWidth,
+      userHeight: _customHeight,
+      actualWidth: _calculatedWidth,
+      actualHeight: _calculatedHeight,
+      userMargin: _marginMm,
+      unit: _customUnit,
+    );
   }
 
   void _generateCollagePreview() {
     if (!_isCollage || _calculatedPhotos <= 0) return;
 
     try {
-      // Create a small preview collage
-      final previewScale = 0.3; // Scale down for preview
-      final passportWidthPx =
-          (widget.passportWidthCm / 2.54 * widget.dpi * previewScale).round();
-      final passportHeightPx =
-          (widget.passportHeightCm / 2.54 * widget.dpi * previewScale).round();
-      final marginPx = (_marginMm / 10.0 / 2.54 * widget.dpi * previewScale)
-          .round();
+      // 🔥 CRITICAL FIX: Don't calculate grid from dimensions!
+      // Instead, use the EXACT grid that was chosen for user's photo count!
 
-      final collageWidthPx =
-          (_calculatedWidth / 2.54 * widget.dpi * previewScale).round();
-      final collageHeightPx =
-          (_calculatedHeight / 2.54 * widget.dpi * previewScale).round();
+      // Step 1: Re-calculate the SAME grid that was chosen in _calculateDimensionsFromPhotoCount
+      final passportWidthPx = (widget.passportWidthCm / 2.54 * widget.dpi);
+      final passportHeightPx = (widget.passportHeightCm / 2.54 * widget.dpi);
+      final marginPx = (_marginMm / 10.0 / 2.54 * widget.dpi);
 
-      final cols = ((collageWidthPx + marginPx) / (passportWidthPx + marginPx))
-          .floor();
-      final rows =
-          ((collageHeightPx + marginPx) / (passportHeightPx + marginPx))
-              .floor();
+      // 🔥 CRITICAL FIX: Use the correct photo count based on mode
+      final effectivePhotoCount = _usePhotoCount
+          ? _targetPhotoCount
+          : _calculatedPhotos;
+
+      // Use IDENTICAL logic as the calculation method to get the EXACT same grid
+      int bestCols = 1, bestRows = 1;
+      double bestRatio = double.infinity;
+
+      if (_usePhotoCount) {
+        // Photo Count Mode: Find optimal grid for target photo count
+        for (int cols = 1; cols <= effectivePhotoCount; cols++) {
+          int rows = (effectivePhotoCount / cols).ceil();
+          int totalSlots = cols * rows;
+
+          if (totalSlots >= effectivePhotoCount) {
+            double width = cols * passportWidthPx + (cols - 1) * marginPx;
+            double height = rows * passportHeightPx + (rows - 1) * marginPx;
+            double ratio = width / height;
+            double targetRatio = 1.414; // A4 aspect ratio
+            double ratioDiff = (ratio - 1 / targetRatio).abs();
+
+            double priority = ratioDiff;
+            if (totalSlots == effectivePhotoCount) {
+              priority -= 1000; // Huge preference for exact match
+            }
+
+            if (priority < bestRatio) {
+              bestRatio = priority;
+              bestCols = cols;
+              bestRows = rows;
+            }
+          }
+        }
+      } else {
+        // Dimension Mode: Use the EXACT SAME grid calculation as _calculatePhotosFromDimensions()
+        double widthCm = _customWidth;
+        double heightCm = _customHeight;
+        if (_customUnit == 'inch') {
+          widthCm = _customWidth * 2.54;
+          heightCm = _customHeight * 2.54;
+        }
+
+        final widthPx = (widthCm / 2.54 * widget.dpi);
+        final heightPx = (heightCm / 2.54 * widget.dpi);
+
+        // Use the EXACT same formula with floating-point tolerance
+        final colsExact = (widthPx + marginPx) / (passportWidthPx + marginPx);
+        final rowsExact = (heightPx + marginPx) / (passportHeightPx + marginPx);
+
+        // Add small tolerance (0.01) to handle floating-point precision issues
+        bestCols = (colsExact + 0.01).floor();
+        bestRows = (rowsExact + 0.01).floor();
+      }
+
+      // NOW we have the EXACT same grid that was chosen
+      final cols = bestCols;
+      final rows = bestRows;
+
+      debugPrint(
+        '🔥 PREVIEW: Using EXACT chosen grid ${cols}x${rows} for ${effectivePhotoCount} photos',
+      );
+
+      // Step 2: Create scaled preview using this EXACT grid
+      final previewScale = 0.3;
+      final passportWidthPxPreview = passportWidthPx * previewScale;
+      final passportHeightPxPreview = passportHeightPx * previewScale;
+      final marginPxPreview = marginPx * previewScale;
+      final collageWidthPxPreview =
+          (cols * passportWidthPx + (cols - 1) * marginPx) * previewScale;
+      final collageHeightPxPreview =
+          (rows * passportHeightPx + (rows - 1) * marginPx) * previewScale;
 
       // Decode and resize the cropped image
       img.Image? originalImage = img.decodeImage(widget.croppedImageBytes);
@@ -176,41 +360,59 @@ class _OutputSelectionScreenState extends State<OutputSelectionScreen> {
 
       img.Image resizedPhoto = img.copyResize(
         originalImage,
-        width: passportWidthPx,
-        height: passportHeightPx,
+        width: passportWidthPxPreview.round(),
+        height: passportHeightPxPreview.round(),
       );
 
       // Create collage
-      final collage = img.Image(width: collageWidthPx, height: collageHeightPx);
+      final collage = img.Image(
+        width: collageWidthPxPreview.round(),
+        height: collageHeightPxPreview.round(),
+      );
       final white = img.ColorInt32.rgb(255, 255, 255);
 
       // Fill with white background
-      for (int y = 0; y < collageHeightPx; y++) {
-        for (int x = 0; x < collageWidthPx; x++) {
+      for (int y = 0; y < collageHeightPxPreview.round(); y++) {
+        for (int x = 0; x < collageWidthPxPreview.round(); x++) {
           collage.setPixel(x, y, white);
         }
       }
 
-      // Place photos
-      for (int row = 0; row < rows; row++) {
-        for (int col = 0; col < cols; col++) {
-          final x = col * (passportWidthPx + marginPx);
-          final y = row * (passportHeightPx + marginPx);
+      // Place photos using the EXACT grid - honor effective photo count exactly
+      int photosPlaced = 0;
+      for (
+        int row = 0;
+        row < rows && photosPlaced < effectivePhotoCount;
+        row++
+      ) {
+        for (
+          int col = 0;
+          col < cols && photosPlaced < effectivePhotoCount;
+          col++
+        ) {
+          final x = col * (passportWidthPxPreview + marginPxPreview);
+          final y = row * (passportHeightPxPreview + marginPxPreview);
 
-          for (int iy = 0; iy < passportHeightPx; iy++) {
-            for (int ix = 0; ix < passportWidthPx; ix++) {
+          for (int iy = 0; iy < passportHeightPxPreview.round(); iy++) {
+            for (int ix = 0; ix < passportWidthPxPreview.round(); ix++) {
               if (ix < resizedPhoto.width && iy < resizedPhoto.height) {
                 final px = resizedPhoto.getPixel(ix, iy);
-                int cx = x + ix;
-                int cy = y + iy;
-                if (cx < collageWidthPx && cy < collageHeightPx) {
+                int cx = x.round() + ix;
+                int cy = y.round() + iy;
+                if (cx < collageWidthPxPreview.round() &&
+                    cy < collageHeightPxPreview.round()) {
                   collage.setPixel(cx, cy, px);
                 }
               }
             }
           }
+          photosPlaced++;
         }
       }
+
+      debugPrint(
+        'PREVIEW: Placed $photosPlaced photos (user wanted $effectivePhotoCount)',
+      );
 
       setState(() {
         _collagePreviewBytes = Uint8List.fromList(img.encodePng(collage));
@@ -733,6 +935,8 @@ class _OutputSelectionScreenState extends State<OutputSelectionScreen> {
                               collageWidth: _calculatedWidth,
                               collageHeight: _calculatedHeight,
                               marginMm: _marginMm, // Pass the configured margin
+                              targetPhotoCount:
+                                  _targetPhotoCount, // CRITICAL: Pass user's photo count requirement
                             ),
                           ),
                         );
